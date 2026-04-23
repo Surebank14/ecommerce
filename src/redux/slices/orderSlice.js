@@ -12,6 +12,8 @@ const initialState = {
   paymentVerified: false,
   payoffLoading: false,
   payoffError: null,
+  orderDepositLoading: false,
+  orderDepositError: null,
 };
 
 const orderSlice = createSlice({
@@ -55,6 +57,17 @@ const orderSlice = createSlice({
       state.payoffLoading = false;
       state.payoffError = action.payload;
     },
+    initializeOrderDepositRequest: (state) => {
+      state.orderDepositLoading = true;
+      state.orderDepositError = null;
+    },
+    initializeOrderDepositSuccess: (state) => {
+      state.orderDepositLoading = false;
+    },
+    initializeOrderDepositFailure: (state, action) => {
+      state.orderDepositLoading = false;
+      state.orderDepositError = action.payload;
+    },
     clearOrderState: (state) => {
       state.currentOrder = null;
       state.success = false;
@@ -64,6 +77,8 @@ const orderSlice = createSlice({
       state.paymentVerified = false;
       state.payoffLoading = false;
       state.payoffError = null;
+      state.orderDepositLoading = false;
+      state.orderDepositError = null;
     },
     // Payment actions
     initializePaymentRequest: (state) => {
@@ -114,6 +129,9 @@ export const {
   payoffRemainingBalanceRequest,
   payoffRemainingBalanceSuccess,
   payoffRemainingBalanceFailure,
+  initializeOrderDepositRequest,
+  initializeOrderDepositSuccess,
+  initializeOrderDepositFailure,
   clearOrderState,
   initializePaymentRequest,
   initializePaymentSuccess,

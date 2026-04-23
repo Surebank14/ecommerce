@@ -104,7 +104,7 @@ const Orders = () => {
                     {order.paymentType === 'installment' && (
                       <>
                         <span className="ml-2 text-gray-500">
-                          ({order.installmentPlan?.frequency}, {order.installmentPlan?.duration} payments)
+                          (flexible payments)
                         </span>
                         <div className="mt-1 text-xs text-gray-500">
                           Paid: ₦{order.installmentPlan?.totalPaid?.toLocaleString() || 0} • Remaining: ₦{order.installmentPlan?.remainingBalance?.toLocaleString() || 0}

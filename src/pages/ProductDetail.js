@@ -18,10 +18,8 @@ const ProductDetail = () => {
   const { paymentLoading, paymentError, paymentVerified } = useSelector((state) => state.orders);
   const prevAuthRef = useRef(isAuthenticated);
   const [selectedImage, setSelectedImage] = useState(0);
-  const [paymentFrequency, setPaymentFrequency] = useState('');
   const [showPlanSetup, setShowPlanSetup] = useState(false);
-  const [duration, setDuration] = useState('');
-  const [showPaymentSchedule, setShowPaymentSchedule] = useState(false);
+  const [firstPaymentAmount, setFirstPaymentAmount] = useState('');
   const [showShippingInfo, setShowShippingInfo] = useState(false);
   const [showAddressInput, setShowAddressInput] = useState(false);
   const [deliveryAddress, setDeliveryAddress] = useState('');
@@ -146,40 +144,6 @@ const ProductDetail = () => {
         password: signupForm.password
       }));
     }
-  };
-
-  // Generate payment schedule
-  const generatePaymentSchedule = () => {
-    if (!duration || !paymentFrequency || !product) return [];
-
-    const installmentAmount = Math.ceil(product.price / parseInt(duration));
-    const schedule = [];
-    const startDate = new Date();
-
-    for (let i = 0; i < parseInt(duration); i++) {
-      const paymentDate = new Date(startDate);
-
-      if (paymentFrequency === 'daily') {
-        paymentDate.setDate(paymentDate.getDate() + (i + 1));
-      } else if (paymentFrequency === 'weekly') {
-        paymentDate.setDate(paymentDate.getDate() + (7 * (i + 1)));
-      } else {
-        paymentDate.setMonth(paymentDate.getMonth() + (i + 1));
-      }
-
-      // Last payment adjusts for rounding
-      const amount = i === parseInt(duration) - 1
-        ? product.price - (installmentAmount * (parseInt(duration) - 1))
-        : installmentAmount;
-
-      schedule.push({
-        number: i + 1,
-        date: paymentDate,
-        amount: amount
-      });
-    }
-
-    return schedule;
   };
 
   useEffect(() => {
@@ -347,14 +311,26 @@ const ProductDetail = () => {
       return;
     }
 
+    const amountToPay = Number(firstPaymentAmount);
+    if (!Number.isFinite(amountToPay) || amountToPay <= 0) {
+      setPaymentErrorMessage('Please enter the amount you want to pay now');
+      return;
+    }
+    if (amountToPay > Number(product?.price || 0)) {
+      setPaymentErrorMessage(`First payment cannot exceed ₦${Number(product?.price || 0).toLocaleString()}`);
+      return;
+    }
+
     setProcessingPayment(true);
     setPaymentErrorMessage('');
 
     // Initialize payment request - include productId so backend adds to cart
     const paymentData = {
       paymentType: 'installment',
-      installmentFrequency: paymentFrequency,
-      installmentDuration: parseInt(duration),
+      firstPaymentAmount: amountToPay,
+      amountToPay,
+      initialPaymentAmount: amountToPay,
+      amountToCharge: amountToPay,
       shippingAddress: deliveryAddress,
       shippingCity: selectedLGA || '',
       shippingState: selectedState || '',
@@ -386,8 +362,8 @@ const ProductDetail = () => {
       }
     }));
   }, [
-    isAuthenticated, customerEmail, customer, product, duration,
-    paymentFrequency, deliveryAddress, selectedLGA, selectedState, dispatch, navigate, signupForm.phone
+    isAuthenticated, customerEmail, customer, product, firstPaymentAmount,
+    deliveryAddress, selectedLGA, selectedState, dispatch, navigate, signupForm.phone
   ]);
 
   const getCategoryName = (categoryId) => {
@@ -956,124 +932,29 @@ const ProductDetail = () => {
       {/* Plan Setup Card */}
       {showPlanSetup && (
         <div className="mx-auto mt-4 max-w-xs sm:max-w-sm md:max-w-md bg-white rounded-xl p-4 shadow-sm">
-          <h2 className="text-base font-semibold text-gray-900">Plan setup</h2>
-          <p className="text-sm text-gray-500 mt-1">Select payment frequency and duration.</p>
+          <h2 className="text-base font-semibold text-gray-900">Pay Small Small</h2>
+          <p className="text-sm text-gray-500 mt-1">Enter the amount you want to pay now. You can add more money anytime from My Orders until the product is fully paid.</p>
 
-          {/* Frequency Buttons */}
-          <div className="flex gap-3 mt-4">
-            <button
-              onClick={() => { setPaymentFrequency('daily'); setDuration(''); }}
-              className={`px-5 py-2 rounded-full text-sm font-medium border transition-colors ${
-                paymentFrequency === 'daily'
-                  ? 'border-orange-500 text-orange-500 bg-orange-50'
-                  : 'border-gray-300 text-gray-600 hover:border-gray-400'
-              }`}
-            >
-              Daily
-            </button>
-            <button
-              onClick={() => { setPaymentFrequency('weekly'); setDuration(''); }}
-              className={`px-5 py-2 rounded-full text-sm font-medium border transition-colors ${
-                paymentFrequency === 'weekly'
-                  ? 'border-orange-500 text-orange-500 bg-orange-50'
-                  : 'border-gray-300 text-gray-600 hover:border-gray-400'
-              }`}
-            >
-              Weekly
-            </button>
-            <button
-              onClick={() => { setPaymentFrequency('monthly'); setDuration(''); }}
-              className={`px-5 py-2 rounded-full text-sm font-medium border transition-colors ${
-                paymentFrequency === 'monthly'
-                  ? 'border-orange-500 text-orange-500 bg-orange-50'
-                  : 'border-gray-300 text-gray-600 hover:border-gray-400'
-              }`}
-            >
-              Monthly
-            </button>
-          </div>
-
-          {/* Number of Installments Grid */}
-          {paymentFrequency && (
-            <div className="mt-4">
-              <p className="text-sm text-gray-700 mb-3">Select the number of installments</p>
-              <div className="grid grid-cols-6 gap-2">
-                {paymentFrequency === 'daily' && (
-                  [7, 14, 21, 30, 60, 90].map((num) => (
-                    <button
-                      key={num}
-                      onClick={() => setDuration(num.toString())}
-                      className={`py-2 px-1 rounded-full text-sm font-medium transition-colors ${
-                        duration === num.toString()
-                          ? 'bg-orange-500 text-white'
-                          : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                      }`}
-                    >
-                      {num}
-                    </button>
-                  ))
-                )}
-                {paymentFrequency === 'weekly' && (
-                  [2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 22, 24, 26, 28, 30, 32, 34, 36, 38, 40, 44, 48, 50, 52].map((num) => (
-                    <button
-                      key={num}
-                      onClick={() => setDuration(num.toString())}
-                      className={`py-2 px-1 rounded-full text-sm font-medium transition-colors ${
-                        duration === num.toString()
-                          ? 'bg-orange-500 text-white'
-                          : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                      }`}
-                    >
-                      {num}
-                    </button>
-                  ))
-                )}
-                {paymentFrequency === 'monthly' && (
-                  [2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map((num) => (
-                    <button
-                      key={num}
-                      onClick={() => setDuration(num.toString())}
-                      className={`py-2 px-1 rounded-full text-sm font-medium transition-colors ${
-                        duration === num.toString()
-                          ? 'bg-orange-500 text-white'
-                          : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                      }`}
-                    >
-                      {num}
-                    </button>
-                  ))
-                )}
-              </div>
+          <div className="mt-4 rounded-lg border border-orange-200 bg-orange-50 p-3">
+            <div className="flex justify-between text-sm">
+              <span className="text-gray-600">Product price</span>
+              <span className="font-semibold">₦{product.price?.toLocaleString()}</span>
             </div>
-          )}
+            <label className="mt-3 block text-sm font-medium text-gray-700">First payment amount</label>
+            <input
+              type="number"
+              min="1"
+              max={product.price}
+              value={firstPaymentAmount}
+              onChange={(e) => setFirstPaymentAmount(e.target.value)}
+              placeholder="Enter amount to pay now"
+              className="mt-1 w-full rounded-lg border border-orange-200 px-4 py-3 text-sm focus:border-orange-500 focus:outline-none focus:ring-2 focus:ring-orange-500"
+            />
+            <p className="mt-2 text-xs text-gray-500">
+              Remaining balance after this payment: ₦{Math.max(0, Number(product.price || 0) - Number(firstPaymentAmount || 0)).toLocaleString()}
+            </p>
 
-          {/* Installment Calculation Display */}
-          {duration && (
-            <div className="mt-4 p-3 bg-orange-50 rounded-lg border border-orange-200">
-              <div className="flex justify-between items-center">
-                <span className="text-sm text-gray-600">
-                  {paymentFrequency === 'daily' && `Pay for ${duration} days`}
-                  {paymentFrequency === 'weekly' && `Pay for ${duration} weeks`}
-                  {paymentFrequency === 'monthly' && `Pay for ${duration} months`}
-                </span>
-                <span className="text-lg font-bold text-orange-500">
-                  ₦{Math.ceil(product.price / parseInt(duration)).toLocaleString()}
-                  <span className="text-sm font-normal text-gray-500">
-                    /{paymentFrequency === 'daily' ? 'day' : paymentFrequency === 'weekly' ? 'week' : 'month'}
-                  </span>
-                </span>
-              </div>
-              <p className="text-xs text-gray-500 mt-2">
-                Total: ₦{product.price?.toLocaleString()} over {duration} {paymentFrequency === 'daily' ? 'days' : paymentFrequency === 'weekly' ? 'weeks' : 'months'}
-              </p>
-              <button
-                onClick={() => setShowPaymentSchedule(true)}
-                className="text-xs text-gray-500 underline mt-3 hover:text-orange-500"
-              >
-                Click to see a full breakdown of your payments&gt;&gt;
-              </button>
-
-              {/* Delivery Address Section */}
+            {Number(firstPaymentAmount) > 0 && Number(firstPaymentAmount) <= Number(product.price || 0) && (
               <div className="mt-4 pt-4 border-t border-orange-200">
                 <div className="flex justify-between items-start">
                   <span className="text-sm font-medium text-gray-700">Delivery Address</span>
@@ -1122,11 +1003,11 @@ const ProductDetail = () => {
                   </div>
                 )}
               </div>
-            </div>
-          )}
+            )}
+          </div>
 
           {/* Terms & Conditions Section - Shows when delivery address is set */}
-          {duration && deliveryAddress && (
+          {Number(firstPaymentAmount) > 0 && deliveryAddress && (
             <div className="mt-4 pt-4 border-t border-orange-200">
               <div className="flex items-center gap-2">
                 <button
@@ -1163,7 +1044,7 @@ const ProductDetail = () => {
           )}
 
           {/* Payment Summary Section - Shows when terms are accepted */}
-          {duration && deliveryAddress && termsAccepted && (
+          {Number(firstPaymentAmount) > 0 && deliveryAddress && termsAccepted && (
             <div className="mt-4">
               <p className="text-center text-sm text-gray-700 font-medium">
                 Total delivery fee is <span className="font-bold">₦0.00</span>.
@@ -1172,27 +1053,19 @@ const ProductDetail = () => {
                 Free delivery on all orders!
               </p>
 
-              {/* Payment Plan Summary Banner */}
               <div className="mt-4 bg-gray-100 rounded-xl p-3">
                 <div className="flex items-center justify-between gap-2 flex-wrap">
                   <span className="px-4 py-2 bg-white rounded-full text-sm text-gray-700 border border-gray-200">
-                    {paymentFrequency === 'daily' ? 'Daily' : paymentFrequency === 'weekly' ? 'Weekly' : 'Monthly'} plan
+                    Flexible payment
                   </span>
                   <span className="px-4 py-2 bg-white rounded-full text-sm text-gray-700 border border-gray-200">
-                    {duration} {paymentFrequency === 'daily' ? 'days' : paymentFrequency === 'weekly' ? 'weeks' : 'months'}
+                    Pay any amount anytime
                   </span>
                   <span className="px-4 py-2 bg-white rounded-full text-sm text-orange-500 font-semibold border border-orange-200">
-                    ₦{Math.ceil(product.price / parseInt(duration)).toLocaleString()} due now
+                    ₦{Number(firstPaymentAmount || 0).toLocaleString()} due now
                   </span>
                 </div>
               </div>
-
-              <button
-                onClick={() => setShowPaymentSchedule(true)}
-                className="text-sm text-gray-600 underline mt-3 hover:text-orange-500 w-full text-center"
-              >
-                Click to see a full breakdown of your payments&gt;&gt;
-              </button>
 
               {/* Email Input for Payment Receipt */}
               <div className="mt-4">
@@ -1242,7 +1115,7 @@ const ProductDetail = () => {
           )}
 
           {/* Continue Button - Shows when terms not accepted or no address */}
-          {duration && (!deliveryAddress || !termsAccepted) && (
+          {Number(firstPaymentAmount) > 0 && (!deliveryAddress || !termsAccepted) && (
             <button
               onClick={() => {
                 if (!deliveryAddress) {
@@ -1268,93 +1141,6 @@ const ProductDetail = () => {
             {product.description.split('\n').map((line, index) => (
               <p key={index}>{line}</p>
             ))}
-          </div>
-        </div>
-      )}
-
-      {/* Payment Schedule Modal */}
-      {showPaymentSchedule && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl max-w-md w-full max-h-[80vh] overflow-hidden">
-            {/* Modal Header */}
-            <div className="flex items-center justify-between p-4 border-b">
-              <h3 className="text-lg font-semibold text-gray-900">Payment Schedule</h3>
-              <button
-                onClick={() => setShowPaymentSchedule(false)}
-                className="text-gray-400 hover:text-gray-600"
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            </div>
-
-            {/* Modal Body */}
-            <div className="p-4 overflow-y-auto max-h-[60vh]">
-              {/* Summary */}
-              <div className="bg-orange-50 rounded-lg p-3 mb-4">
-                <div className="flex justify-between text-sm">
-                  <span className="text-gray-600">Total Amount:</span>
-                  <span className="font-semibold">₦{product.price?.toLocaleString()}</span>
-                </div>
-                <div className="flex justify-between text-sm mt-1">
-                  <span className="text-gray-600">Payment Plan:</span>
-                  <span className="font-semibold capitalize">{paymentFrequency} x {duration}</span>
-                </div>
-                <div className="flex justify-between text-sm mt-1">
-                  <span className="text-gray-600">Amount per {paymentFrequency === 'daily' ? 'day' : paymentFrequency === 'weekly' ? 'week' : 'month'}:</span>
-                  <span className="font-semibold text-orange-500">₦{Math.ceil(product.price / parseInt(duration)).toLocaleString()}</span>
-                </div>
-              </div>
-
-              {/* Schedule Table */}
-              <div className="border rounded-lg overflow-hidden">
-                <table className="w-full">
-                  <thead className="bg-gray-50">
-                    <tr>
-                      <th className="text-left text-xs font-medium text-gray-500 px-3 py-2">#</th>
-                      <th className="text-left text-xs font-medium text-gray-500 px-3 py-2">Due Date</th>
-                      <th className="text-right text-xs font-medium text-gray-500 px-3 py-2">Amount</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y">
-                    {generatePaymentSchedule().map((payment) => (
-                      <tr key={payment.number} className="hover:bg-gray-50">
-                        <td className="text-sm text-gray-600 px-3 py-2">{payment.number}</td>
-                        <td className="text-sm text-gray-600 px-3 py-2">
-                          {payment.date.toLocaleDateString('en-GB', {
-                            day: '2-digit',
-                            month: 'short',
-                            year: 'numeric'
-                          })}
-                        </td>
-                        <td className="text-sm text-gray-900 font-medium px-3 py-2 text-right">
-                          ₦{payment.amount.toLocaleString()}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                  <tfoot className="bg-gray-50">
-                    <tr>
-                      <td colSpan="2" className="text-sm font-semibold text-gray-700 px-3 py-2">Total</td>
-                      <td className="text-sm font-bold text-orange-500 px-3 py-2 text-right">
-                        ₦{product.price?.toLocaleString()}
-                      </td>
-                    </tr>
-                  </tfoot>
-                </table>
-              </div>
-            </div>
-
-            {/* Modal Footer */}
-            <div className="p-4 border-t">
-              <button
-                onClick={() => setShowPaymentSchedule(false)}
-                className="w-full py-2 bg-orange-500 hover:bg-orange-600 text-white rounded-full text-sm font-medium"
-              >
-                Close
-              </button>
-            </div>
           </div>
         </div>
       )}
@@ -1446,7 +1232,7 @@ const ProductDetail = () => {
                   <p>
                     {showBuyNowSetup
                       ? 'By selecting the "Buy Now, Once!" option, you agree to make a one-time full payment for your order. Payment is processed securely through Paystack.'
-                      : 'By selecting the "Pay Small Small" option, you agree to make payments according to the selected frequency (daily, weekly, or monthly) until the total product price is fully paid.'}
+                      : 'By selecting the "Pay Small Small" option, you agree to make an initial payment now and continue paying any amount until the total product price is fully paid.'}
                   </p>
                 </div>
                 <div>
@@ -1454,7 +1240,7 @@ const ProductDetail = () => {
                   <p>
                     {showBuyNowSetup
                       ? 'Your payment will be processed immediately upon confirmation. You will receive a receipt via email once payment is successful.'
-                      : 'Your first installment payment is due immediately upon order confirmation. Subsequent payments will be due according to your selected payment schedule.'}
+                      : 'Your first payment is processed immediately. Subsequent payments can be made from My Orders whenever you are ready.'}
                   </p>
                 </div>
                 <div>

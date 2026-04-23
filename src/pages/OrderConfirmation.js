@@ -1,14 +1,22 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
-import { fetchOrderByNumberRequest, clearOrderState, payoffRemainingBalanceRequest } from '../redux/slices/orderSlice';
+import {
+  fetchOrderByNumberRequest,
+  clearOrderState,
+  payoffRemainingBalanceRequest,
+  initializeOrderDepositRequest
+} from '../redux/slices/orderSlice';
 import { fetchWalletRequest } from '../redux/slices/walletSlice';
 
 const OrderConfirmation = () => {
   const dispatch = useDispatch();
   const { orderNumber } = useParams();
-  const { currentOrder: order, loading, error, payoffLoading, payoffError } = useSelector((state) => state.orders);
+  const { currentOrder: order, loading, error, payoffLoading, payoffError, orderDepositLoading, orderDepositError } = useSelector((state) => state.orders);
   const { account } = useSelector((state) => state.wallet);
+  const [showDepositModal, setShowDepositModal] = useState(false);
+  const [depositAmount, setDepositAmount] = useState('');
+  const [depositError, setDepositError] = useState('');
 
   useEffect(() => {
     dispatch(fetchOrderByNumberRequest({ orderNumber }));
@@ -58,9 +66,9 @@ const OrderConfirmation = () => {
 
   const payments = order.installmentPlan?.payments || [];
   const paidPayments = payments.filter((payment) => payment.status === 'paid');
-  const outstandingPayments = payments.filter((payment) => payment.status !== 'paid');
-  const progressPercentage = payments.length > 0
-    ? Math.round((paidPayments.length / payments.length) * 100)
+  const totalPaid = Number(order.installmentPlan?.totalPaid || 0);
+  const progressPercentage = Number(order.totalAmount || 0) > 0
+    ? Math.min(100, Math.round((totalPaid / Number(order.totalAmount || 0)) * 100))
     : 0;
   const walletBalance = Number(account?.availableBalance || 0);
   const remainingBalance = Number(order.installmentPlan?.remainingBalance || 0);
@@ -71,6 +79,34 @@ const OrderConfirmation = () => {
 
   const handlePayoffRemainingBalance = () => {
     dispatch(payoffRemainingBalanceRequest({ orderNumber }));
+  };
+
+  const handleDepositForOrder = () => {
+    const amount = Number(depositAmount);
+    setDepositError('');
+
+    if (!Number.isFinite(amount) || amount <= 0) {
+      setDepositError('Enter a valid amount');
+      return;
+    }
+    if (amount > remainingBalance) {
+      setDepositError(`Amount cannot exceed remaining balance of ₦${remainingBalance.toLocaleString()}`);
+      return;
+    }
+
+    dispatch(initializeOrderDepositRequest({
+      orderNumber,
+      amount,
+      customerEmail: order.customerEmail,
+      onSuccess: (data) => {
+        if (data?.authorization_url) {
+          window.location.href = data.authorization_url;
+        } else {
+          setDepositError('Failed to get payment URL. Please try again.');
+        }
+      },
+      onError: (message) => setDepositError(message)
+    }));
   };
 
   return (
@@ -146,7 +182,7 @@ const OrderConfirmation = () => {
             <div>
               <h2 className="text-lg font-semibold">Payment Plan</h2>
               <span className="text-sm text-gray-500">
-                {paidPayments.length} of {payments.length} payments completed
+                ₦{totalPaid.toLocaleString()} paid of ₦{order.totalAmount?.toLocaleString()}
               </span>
             </div>
             <div className="flex flex-col items-start md:items-end gap-2">
@@ -155,6 +191,14 @@ const OrderConfirmation = () => {
                   ₦{walletBalance.toLocaleString()}
                 </span>
               </div>
+              <button
+                type="button"
+                onClick={() => setShowDepositModal(true)}
+                disabled={remainingBalance <= 0 || orderDepositLoading}
+                className="rounded-full bg-orange-500 px-5 py-3 text-sm font-bold text-white shadow-lg shadow-orange-200 transition hover:bg-orange-600 disabled:cursor-not-allowed disabled:bg-orange-300"
+              >
+                {orderDepositLoading ? 'Opening payment...' : 'Deposit for This Order'}
+              </button>
               <button
                 type="button"
                 onClick={handlePayoffRemainingBalance}
@@ -172,6 +216,12 @@ const OrderConfirmation = () => {
             </div>
           )}
 
+          {orderDepositError && (
+            <div className="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+              {orderDepositError}
+            </div>
+          )}
+
           {!payoffError && remainingBalance > 0 && walletBalance < remainingBalance && (
             <div className="mb-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700">
               Add more money to your wallet to pay off the remaining balance at once.
@@ -180,7 +230,7 @@ const OrderConfirmation = () => {
 
           <div className="mb-6">
             <div className="flex justify-between text-sm text-gray-600 mb-2">
-              <span>Schedule progress</span>
+              <span>Payment progress</span>
               <span>{progressPercentage}%</span>
             </div>
             <div className="h-3 bg-gray-200 rounded-full overflow-hidden">
@@ -205,43 +255,35 @@ const OrderConfirmation = () => {
               </p>
             </div>
             <div className="rounded-xl border border-gray-200 bg-gray-50 p-4">
-              <p className="text-xs uppercase tracking-wide text-gray-500">Amount per Payment</p>
+              <p className="text-xs uppercase tracking-wide text-gray-500">Payments Made</p>
               <p className="mt-1 text-lg font-semibold">
-                ₦{order.installmentPlan.amountPerPeriod?.toLocaleString() || 0}
+                {paidPayments.length}
               </p>
             </div>
             <div className="rounded-xl border border-gray-200 bg-gray-50 p-4">
-              <p className="text-xs uppercase tracking-wide text-gray-500">Next Due Date</p>
+              <p className="text-xs uppercase tracking-wide text-gray-500">Collection Status</p>
               <p className="mt-1 text-lg font-semibold">
-                {order.installmentPlan.nextPaymentDate
-                  ? new Date(order.installmentPlan.nextPaymentDate).toLocaleDateString()
-                  : outstandingPayments[0]
-                    ? new Date(outstandingPayments[0].date).toLocaleDateString()
-                    : 'Completed'}
+                {remainingBalance <= 0 ? 'Ready' : 'Paying'}
               </p>
             </div>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4 text-sm">
             <div>
-              <span className="text-gray-600">Frequency</span>
-              <p className="font-medium capitalize">{order.installmentPlan.frequency}</p>
+              <span className="text-gray-600">Payment Type</span>
+              <p className="font-medium">Flexible pay small small</p>
             </div>
             <div>
-              <span className="text-gray-600">Duration</span>
-              <p className="font-medium">{order.installmentPlan.duration} payments</p>
+              <span className="text-gray-600">Order SB Account</span>
+              <p className="font-medium">{order.SBAccountNumber || 'N/A'}</p>
             </div>
             <div>
-              <span className="text-gray-600">Amount per Payment</span>
-              <p className="font-medium">₦{order.installmentPlan.amountPerPeriod?.toLocaleString()}</p>
+              <span className="text-gray-600">Minimum Subsequent Payment</span>
+              <p className="font-medium">Any amount</p>
             </div>
             <div>
-              <span className="text-gray-600">Next Payment</span>
-              <p className="font-medium">
-                {order.installmentPlan.nextPaymentDate
-                  ? new Date(order.installmentPlan.nextPaymentDate).toLocaleDateString()
-                  : 'N/A'}
-              </p>
+              <span className="text-gray-600">Remaining Balance</span>
+              <p className="font-medium">₦{remainingBalance.toLocaleString()}</p>
             </div>
           </div>
 
@@ -251,13 +293,20 @@ const OrderConfirmation = () => {
                 <thead className="bg-gray-50">
                   <tr>
                     <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">Payment</th>
-                    <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">Due Date</th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">Date</th>
                     <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">Amount</th>
                     <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">Status</th>
                     <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">Paid On</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200 bg-white">
+                  {payments.length === 0 && (
+                    <tr>
+                      <td colSpan="5" className="px-4 py-6 text-center text-sm text-gray-500">
+                        No payment has been recorded for this order yet.
+                      </td>
+                    </tr>
+                  )}
                   {payments.map((payment, index) => (
                     <tr key={payment._id || `${payment.date}-${index}`}>
                       <td className="px-4 py-3 text-sm font-medium text-gray-900">
@@ -294,8 +343,73 @@ const OrderConfirmation = () => {
               Your SB Account Number: <strong>{order.SBAccountNumber}</strong>
             </p>
             <p className="text-sm text-gray-600 mt-1">
-              You can make payments at any SureBank branch using this account number. Each successful payment will update this schedule automatically and reduce your remaining balance.
+              Use the Deposit for This Order button to pay any amount. Each successful payment credits your wallet, moves the money to this order SB account, and reduces the remaining balance.
             </p>
+          </div>
+        </div>
+      )}
+
+      {showDepositModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
+          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl">
+            <div className="mb-4 flex items-start justify-between gap-4">
+              <div>
+                <h3 className="text-lg font-bold text-gray-900">Deposit for This Order</h3>
+                <p className="mt-1 text-sm text-gray-500">
+                  Enter any amount up to the remaining balance. Payment will be routed through your wallet into this order account.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowDepositModal(false)}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <span className="sr-only">Close</span>
+                ×
+              </button>
+            </div>
+
+            <div className="mb-4 rounded-xl border border-orange-200 bg-orange-50 p-3 text-sm">
+              <div className="flex justify-between">
+                <span className="text-gray-600">Remaining balance</span>
+                <span className="font-bold text-orange-700">₦{remainingBalance.toLocaleString()}</span>
+              </div>
+            </div>
+
+            <label className="mb-1 block text-sm font-medium text-gray-700">Amount</label>
+            <input
+              type="number"
+              min="1"
+              max={remainingBalance}
+              value={depositAmount}
+              onChange={(e) => setDepositAmount(e.target.value)}
+              placeholder="Enter amount to pay"
+              className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm focus:border-orange-500 focus:outline-none focus:ring-2 focus:ring-orange-500"
+            />
+
+            {(depositError || orderDepositError) && (
+              <div className="mt-3 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">
+                {depositError || orderDepositError}
+              </div>
+            )}
+
+            <div className="mt-5 flex gap-3">
+              <button
+                type="button"
+                onClick={handleDepositForOrder}
+                disabled={orderDepositLoading}
+                className="flex-1 rounded-full bg-orange-500 px-4 py-3 text-sm font-bold text-white transition hover:bg-orange-600 disabled:cursor-not-allowed disabled:bg-orange-300"
+              >
+                {orderDepositLoading ? 'Processing...' : 'Pay Now'}
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowDepositModal(false)}
+                className="rounded-full border border-gray-200 px-4 py-3 text-sm font-semibold text-gray-700 hover:bg-gray-50"
+              >
+                Cancel
+              </button>
+            </div>
           </div>
         </div>
       )}

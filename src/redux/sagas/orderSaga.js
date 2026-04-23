@@ -10,6 +10,9 @@ import {
   payoffRemainingBalanceRequest,
   payoffRemainingBalanceSuccess,
   payoffRemainingBalanceFailure,
+  initializeOrderDepositRequest,
+  initializeOrderDepositSuccess,
+  initializeOrderDepositFailure,
   initializePaymentRequest,
   initializePaymentSuccess,
   initializePaymentFailure,
@@ -95,6 +98,34 @@ function* payoffRemainingBalanceSaga(action) {
   }
 }
 
+function* initializeOrderDepositSaga(action) {
+  const { orderNumber, amount, customerEmail, onSuccess, onError } = action.payload;
+  try {
+    const config = { headers: getAuthHeader() };
+    const response = yield call(
+      axios.post,
+      `${API_URL}/api/ecommerce/orders/number/${orderNumber}/deposit/initialize`,
+      {
+        amount,
+        customerEmail,
+        callbackUrl: `${window.location.origin}/payment/verify`,
+      },
+      config
+    );
+
+    yield put(initializeOrderDepositSuccess(response.data.data));
+    if (onSuccess) {
+      onSuccess(response.data.data);
+    }
+  } catch (error) {
+    const errorMessage = error.response?.data?.message || 'Failed to initialize order deposit';
+    yield put(initializeOrderDepositFailure(errorMessage));
+    if (onError) {
+      onError(errorMessage);
+    }
+  }
+}
+
 function* verifyPaymentSaga(action) {
   try {
     const { reference, navigate } = action.payload;
@@ -119,6 +150,7 @@ export default function* orderSaga() {
   yield takeLatest(fetchOrdersRequest.type, fetchOrdersSaga);
   yield takeLatest(fetchOrderByNumberRequest.type, fetchOrderByNumberSaga);
   yield takeLatest(payoffRemainingBalanceRequest.type, payoffRemainingBalanceSaga);
+  yield takeLatest(initializeOrderDepositRequest.type, initializeOrderDepositSaga);
   yield takeLatest(initializePaymentRequest.type, initializePaymentSaga);
   yield takeLatest(verifyPaymentRequest.type, verifyPaymentSaga);
 }

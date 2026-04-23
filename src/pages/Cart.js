@@ -21,8 +21,7 @@ const Cart = () => {
   // Payment modal states
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [paymentType, setPaymentType] = useState(''); // 'installment' or 'outright'
-  const [paymentFrequency, setPaymentFrequency] = useState('');
-  const [duration, setDuration] = useState('');
+  const [firstPaymentAmount, setFirstPaymentAmount] = useState('');
   const [deliveryMethod, setDeliveryMethod] = useState('');
   const [deliveryAddress, setDeliveryAddress] = useState('');
   const [addressState, setAddressState] = useState('');
@@ -148,12 +147,6 @@ const Cart = () => {
     setShowPaymentModal(true);
   };
 
-  // Calculate installment amount
-  const getInstallmentAmount = () => {
-    if (!duration || !totalAmount) return 0;
-    return Math.ceil(totalAmount / parseInt(duration));
-  };
-
   // Handle installment payment
   const handleInstallmentPayment = useCallback(() => {
     if (!isAuthenticated) {
@@ -182,6 +175,16 @@ const Cart = () => {
       return;
     }
 
+    const amountToPay = Number(firstPaymentAmount);
+    if (!Number.isFinite(amountToPay) || amountToPay <= 0) {
+      setPaymentError('Please enter the amount you want to pay now');
+      return;
+    }
+    if (amountToPay > Number(totalAmount || 0)) {
+      setPaymentError(`First payment cannot exceed ₦${Number(totalAmount || 0).toLocaleString()}`);
+      return;
+    }
+
     setProcessingPayment(true);
     setPaymentError('');
 
@@ -191,8 +194,10 @@ const Cart = () => {
 
     const paymentData = {
       paymentType: 'installment',
-      installmentFrequency: paymentFrequency,
-      installmentDuration: parseInt(duration),
+      firstPaymentAmount: amountToPay,
+      amountToPay,
+      initialPaymentAmount: amountToPay,
+      amountToCharge: amountToPay,
       shippingAddress,
       shippingCity: deliveryMethod === 'home' ? addressLGA : selectedPickupLocation?.area || '',
       shippingState: deliveryMethod === 'home' ? addressState : 'Lagos',
@@ -223,8 +228,7 @@ const Cart = () => {
     }));
   }, [
     isAuthenticated, customerEmail, deliveryMethod, deliveryAddress, addressState,
-    addressLGA, addressTown, selectedPickupLocation, customer, paymentFrequency,
-    duration, dispatch
+    addressLGA, addressTown, selectedPickupLocation, customer, firstPaymentAmount, totalAmount, dispatch
   ]);
 
   // Handle outright payment (Buy Now, Once)
@@ -534,7 +538,7 @@ const Cart = () => {
               {/* Back button for when payment type is selected */}
               {paymentType && (
                 <button
-                  onClick={() => { setPaymentType(''); setPaymentFrequency(''); setDuration(''); setDeliveryMethod(''); setTermsAccepted(false); }}
+                  onClick={() => { setPaymentType(''); setFirstPaymentAmount(''); setDeliveryMethod(''); setTermsAccepted(false); }}
                   className="flex items-center gap-1 text-sm text-orange-500 hover:text-orange-600 mb-4"
                 >
                   <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -546,92 +550,25 @@ const Cart = () => {
 
               {/* Installment Payment Flow */}
               {paymentType === 'installment' && (
-                <>
-                  {/* Payment Frequency Selection */}
-                  <div className="mb-4">
-                    <p className="text-sm font-medium text-gray-700 mb-2">Select payment frequency</p>
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                  {['daily', 'weekly', 'monthly'].map((freq) => (
-                    <button
-                      key={freq}
-                      onClick={() => { setPaymentFrequency(freq); setDuration(''); }}
-                      className={`flex-1 py-2 px-3 rounded-full text-sm font-medium border transition-colors ${
-                        paymentFrequency === freq
-                          ? 'border-orange-500 bg-orange-50 text-orange-600'
-                          : 'border-gray-200 text-gray-600 hover:border-gray-300'
-                      }`}
-                    >
-                      {freq.charAt(0).toUpperCase() + freq.slice(1)}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* Duration Selection */}
-              {paymentFrequency && (
-                <div className="mb-4">
-                  <p className="text-sm font-medium text-gray-700 mb-2">Select number of installments</p>
-                  <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
-                    {paymentFrequency === 'daily' && [7, 14, 21, 30, 60, 90].map((num) => (
-                      <button
-                        key={num}
-                        onClick={() => setDuration(num.toString())}
-                        className={`py-2 rounded-full text-sm font-medium transition-colors ${
-                          duration === num.toString()
-                            ? 'bg-orange-500 text-white'
-                            : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                        }`}
-                      >
-                        {num}
-                      </button>
-                    ))}
-                    {paymentFrequency === 'weekly' && [4, 8, 12, 16, 20, 24, 28, 32, 36, 40, 44, 48].map((num) => (
-                      <button
-                        key={num}
-                        onClick={() => setDuration(num.toString())}
-                        className={`py-2 rounded-full text-sm font-medium transition-colors ${
-                          duration === num.toString()
-                            ? 'bg-orange-500 text-white'
-                            : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                        }`}
-                      >
-                        {num}
-                      </button>
-                    ))}
-                    {paymentFrequency === 'monthly' && [2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map((num) => (
-                      <button
-                        key={num}
-                        onClick={() => setDuration(num.toString())}
-                        className={`py-2 rounded-full text-sm font-medium transition-colors ${
-                          duration === num.toString()
-                            ? 'bg-orange-500 text-white'
-                            : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                        }`}
-                      >
-                        {num}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* Installment Amount Display */}
-              {duration && (
                 <div className="bg-orange-50 rounded-lg p-3 mb-4 border border-orange-200">
-                  <div className="flex justify-between items-center">
-                    <span className="text-sm text-gray-600">
-                      Pay for {duration} {paymentFrequency === 'daily' ? 'days' : paymentFrequency === 'weekly' ? 'weeks' : 'months'}
-                    </span>
-                    <span className="text-lg font-bold text-orange-500">
-                      ₦{getInstallmentAmount().toLocaleString()}
-                      <span className="text-sm font-normal text-gray-500">
-                        /{paymentFrequency === 'daily' ? 'day' : paymentFrequency === 'weekly' ? 'week' : 'month'}
-                      </span>
-                    </span>
+                  <div className="flex justify-between text-sm mb-3">
+                    <span className="text-gray-600">Cart total</span>
+                    <span className="font-semibold">₦{totalAmount?.toLocaleString()}</span>
                   </div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Amount to pay now</label>
+                  <input
+                    type="number"
+                    min="1"
+                    max={totalAmount}
+                    value={firstPaymentAmount}
+                    onChange={(e) => setFirstPaymentAmount(e.target.value)}
+                    placeholder="Enter first payment amount"
+                    className="w-full px-4 py-3 border border-orange-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-orange-500"
+                  />
+                  <p className="text-xs text-gray-500 mt-2">
+                    Remaining after this payment: ₦{Math.max(0, Number(totalAmount || 0) - Number(firstPaymentAmount || 0)).toLocaleString()}
+                  </p>
                 </div>
-              )}
-                </>
               )}
 
               {/* Outright Payment - Amount Display */}
@@ -645,7 +582,7 @@ const Cart = () => {
               )}
 
               {/* Delivery Method Selection - shown for both payment types */}
-              {((paymentType === 'installment' && duration) || paymentType === 'outright') && (
+              {((paymentType === 'installment' && Number(firstPaymentAmount) > 0) || paymentType === 'outright') && (
                 <div className="mb-4">
                   <p className="text-sm font-medium text-gray-700 mb-2">Delivery method</p>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
@@ -775,13 +712,13 @@ const Cart = () => {
                     <div className="bg-gray-100 rounded-lg p-3 mb-4">
                       <div className="flex flex-wrap items-center justify-center gap-2">
                         <span className="px-3 py-1 bg-white rounded-full text-xs text-gray-700 border">
-                          {paymentFrequency.charAt(0).toUpperCase() + paymentFrequency.slice(1)} plan
+                          Flexible payment
                         </span>
                         <span className="px-3 py-1 bg-white rounded-full text-xs text-gray-700 border">
-                          {duration} {paymentFrequency === 'daily' ? 'days' : paymentFrequency === 'weekly' ? 'weeks' : 'months'}
+                          Pay any amount anytime
                         </span>
                         <span className="px-3 py-1 bg-white rounded-full text-xs text-orange-500 font-semibold border border-orange-200">
-                          ₦{getInstallmentAmount().toLocaleString()} due now
+                          ₦{Number(firstPaymentAmount || 0).toLocaleString()} due now
                         </span>
                       </div>
                     </div>
@@ -892,7 +829,7 @@ const Cart = () => {
                 <h4 className="font-semibold text-gray-900 mb-1">1. Payment Terms</h4>
                 <p>
                   {paymentType === 'installment'
-                    ? 'By selecting installment payment, you agree to make payments according to your selected frequency until the total is paid.'
+                    ? 'By selecting installment payment, you agree to make an initial payment now and continue paying any amount until the total is paid.'
                     : 'By selecting outright payment, you agree to pay the full amount immediately to complete your purchase.'
                   }
                 </p>
@@ -901,7 +838,7 @@ const Cart = () => {
                 <h4 className="font-semibold text-gray-900 mb-1">2. Payment Processing</h4>
                 <p>
                   {paymentType === 'installment'
-                    ? 'Your first installment is due immediately. Subsequent payments follow your selected schedule.'
+                    ? 'Your first payment is due immediately. Subsequent payments can be made from My Orders whenever you are ready.'
                     : 'Your payment will be processed immediately through our secure payment gateway.'
                   }
                 </p>

@@ -120,7 +120,7 @@ const Home = () => {
   return (
     <div>
       {/* Hero Carousel Section */}
-      <section className="relative h-[420px] sm:h-[500px] md:h-[600px] overflow-hidden">
+      <section className="relative h-[120px] sm:h-[500px] md:h-[600px] overflow-hidden">
         {/* Slides */}
         {heroSlides.map((slide, index) => (
           <div
@@ -147,25 +147,25 @@ const Home = () => {
                     ? 'translate-y-0 opacity-100'
                     : 'translate-y-10 opacity-0'
                 }`}>
-                  <span className="inline-block bg-white/20 backdrop-blur-sm text-white text-xs sm:text-sm px-3 sm:px-4 py-1 rounded-full mb-4">
+                  <span className="inline-block bg-white/20 backdrop-blur-sm text-white text-[9px] sm:text-sm px-2 sm:px-4 py-0.5 sm:py-1 rounded-full mb-1 sm:mb-4">
                     {slide.category}
                   </span>
-                  <h1 className="text-3xl sm:text-4xl md:text-6xl font-bold text-white mb-4 leading-tight">
+                  <h1 className="text-base sm:text-4xl md:text-6xl font-bold text-white mb-0.5 sm:mb-4 leading-tight">
                     {slide.title}
                   </h1>
-                  <p className="text-base sm:text-lg md:text-xl text-white/90 mb-6 sm:mb-8 max-w-lg">
+                  <p className="text-[10px] sm:text-lg md:text-xl text-white/90 mb-2 sm:mb-8 max-w-[210px] sm:max-w-lg leading-tight">
                     {slide.subtitle}
                   </p>
                   <div className="flex flex-col sm:flex-row sm:flex-wrap gap-3 sm:gap-4">
                     <Link
                       to="/products"
-                      className="bg-white text-center text-gray-900 px-6 sm:px-8 py-3 rounded-lg font-semibold hover:bg-gray-100 transition-all hover:scale-105 shadow-lg"
+                      className="bg-white text-center text-gray-900 px-3 sm:px-8 py-1.5 sm:py-3 rounded-lg text-[10px] sm:text-base font-semibold hover:bg-gray-100 transition-all hover:scale-105 shadow-lg"
                     >
                       Shop Now
                     </Link>
                     <Link
                       to="/products"
-                      className="border-2 border-white text-center text-white px-6 sm:px-8 py-3 rounded-lg font-semibold hover:bg-white/10 transition-all"
+                      className="hidden sm:block border-2 border-white text-center text-white px-8 py-3 rounded-lg font-semibold hover:bg-white/10 transition-all"
                     >
                       View Collection
                     </Link>
@@ -205,15 +205,15 @@ const Home = () => {
         </button>
 
         {/* Slide Indicators */}
-        <div className="absolute bottom-4 sm:bottom-6 left-1/2 -translate-x-1/2 flex gap-2 sm:gap-3 z-10">
+        <div className="absolute bottom-1.5 sm:bottom-6 left-1/2 -translate-x-1/2 flex gap-1.5 sm:gap-3 z-10">
           {heroSlides.map((_, index) => (
             <button
               key={index}
               onClick={() => goToSlide(index)}
               className={`transition-all duration-300 ${
                 index === currentSlide
-                  ? 'w-7 sm:w-8 h-2.5 sm:h-3 bg-white rounded-full'
-                  : 'w-2.5 sm:w-3 h-2.5 sm:h-3 bg-white/50 hover:bg-white/70 rounded-full'
+                  ? 'w-4 sm:w-8 h-1.5 sm:h-3 bg-white rounded-full'
+                  : 'w-1.5 sm:w-3 h-1.5 sm:h-3 bg-white/50 hover:bg-white/70 rounded-full'
               }`}
               aria-label={`Go to slide ${index + 1}`}
             />
@@ -232,29 +232,29 @@ const Home = () => {
       </section>
 
       {/* Features Banner */}
-      <section className="bg-emerald-600 text-white py-4">
+      <section className="bg-emerald-600 text-white py-2 sm:py-4">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex flex-wrap justify-center md:justify-between items-center gap-3 sm:gap-4 text-xs sm:text-sm">
+          <div className="flex flex-wrap justify-center md:justify-between items-center gap-2 sm:gap-4 text-[11px] sm:text-sm">
             <div className="flex items-center gap-2">
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
               </svg>
               <span>Free Shipping</span>
             </div>
             <div className="flex items-center gap-2">
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
               <span>Flexible Payment Plans</span>
             </div>
             <div className="flex items-center gap-2">
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
               </svg>
               <span>Secure Checkout</span>
             </div>
             <div className="flex items-center gap-2">
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18.364 5.636l-3.536 3.536m0 5.656l3.536 3.536M9.172 9.172L5.636 5.636m3.536 9.192l-3.536 3.536M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-5 0a4 4 0 11-8 0 4 4 0 018 0z" />
               </svg>
               <span>24/7 Support</span>
@@ -263,47 +263,47 @@ const Home = () => {
         </div>
       </section>
 
-      <section className="py-12 md:py-16 bg-gray-50">
+      <section className="py-3 md:py-16 bg-gray-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3 mb-10 md:mb-12">
+          <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-1 sm:gap-3 mb-2 sm:mb-5 md:mb-12">
             <div>
-              <h2 className="text-2xl md:text-3xl font-bold mb-2">All Products</h2>
-              <p className="text-gray-600">
+              <h2 className="text-base sm:text-xl md:text-3xl font-bold mb-0.5 sm:mb-2">All Products</h2>
+              <p className="text-[11px] sm:text-base text-gray-600">
                 Browse everything available in the storefront
               </p>
             </div>
             <Link
               to="/products"
-              className="inline-flex items-center gap-2 text-emerald-600 hover:text-emerald-700 font-semibold"
+              className="inline-flex items-center gap-1 sm:gap-2 text-xs sm:text-base text-emerald-600 hover:text-emerald-700 font-semibold"
             >
               View Full Catalog
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg className="w-3.5 h-3.5 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" />
               </svg>
             </Link>
           </div>
 
-          <div className="mb-8 rounded-2xl bg-white p-4 sm:p-5 shadow-sm">
-            <div className="grid grid-cols-1 md:grid-cols-[minmax(0,1fr)_240px_auto] gap-3">
+          <div className="mb-3 sm:mb-8 rounded-xl sm:rounded-2xl bg-white p-2 sm:p-5 shadow-sm">
+            <div className="grid grid-cols-[minmax(0,1fr)_120px] sm:grid-cols-1 md:grid-cols-[minmax(0,1fr)_240px_auto] gap-2 sm:gap-3">
               <input
                 type="text"
                 name="search"
                 value={filters.search}
                 onChange={handleFilterChange}
                 placeholder="Search by product name"
-                className="w-full rounded-lg border border-gray-200 px-4 py-3 text-base sm:text-sm text-gray-700 outline-none transition focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100"
+                className="w-full rounded-lg border border-gray-200 px-3 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm text-gray-700 outline-none transition focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100"
               />
               <div className="relative" ref={categoryMenuRef}>
                 <button
                   type="button"
                   onClick={() => setCategoryMenuOpen((open) => !open)}
-                  className="flex w-full items-center justify-between rounded-lg border border-gray-200 bg-white px-4 py-3 text-base sm:text-sm text-gray-700 outline-none transition hover:border-emerald-400 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100"
+                  className="flex w-full items-center justify-between rounded-lg border border-gray-200 bg-white px-3 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm text-gray-700 outline-none transition hover:border-emerald-400 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100"
                 >
                   <span className="truncate">
                     {selectedCategory ? selectedCategory.name : 'All Categories'}
                   </span>
                   <svg
-                    className={`h-4 w-4 flex-shrink-0 transition-transform ${categoryMenuOpen ? 'rotate-180' : ''}`}
+                    className={`h-3.5 w-3.5 sm:h-4 sm:w-4 flex-shrink-0 transition-transform ${categoryMenuOpen ? 'rotate-180' : ''}`}
                     fill="none"
                     stroke="currentColor"
                     viewBox="0 0 24 24"
@@ -313,11 +313,11 @@ const Home = () => {
                 </button>
 
                 {categoryMenuOpen && (
-                  <div className="absolute left-0 right-0 top-full z-20 mt-2 max-h-72 overflow-y-auto rounded-xl border border-gray-200 bg-white py-2 shadow-xl">
+                  <div className="absolute left-0 right-0 top-full z-20 mt-1 sm:mt-2 max-h-56 sm:max-h-72 overflow-y-auto rounded-xl border border-gray-200 bg-white py-1 sm:py-2 shadow-xl">
                     <button
                       type="button"
                       onClick={() => handleCategorySelect('')}
-                      className={`block w-full px-4 py-3 text-left text-sm transition hover:bg-emerald-50 hover:text-emerald-700 ${
+                      className={`block w-full px-3 sm:px-4 py-2 sm:py-3 text-left text-xs sm:text-sm transition hover:bg-emerald-50 hover:text-emerald-700 ${
                         !filters.categoryId ? 'bg-emerald-50 text-emerald-700' : 'text-gray-700'
                       }`}
                     >
@@ -328,7 +328,7 @@ const Home = () => {
                         key={category._id}
                         type="button"
                         onClick={() => handleCategorySelect(category._id)}
-                        className={`block w-full px-4 py-3 text-left text-sm transition hover:bg-emerald-50 hover:text-emerald-700 ${
+                        className={`block w-full px-3 sm:px-4 py-2 sm:py-3 text-left text-xs sm:text-sm transition hover:bg-emerald-50 hover:text-emerald-700 ${
                           filters.categoryId === category._id ? 'bg-emerald-50 text-emerald-700' : 'text-gray-700'
                         }`}
                       >
@@ -341,7 +341,7 @@ const Home = () => {
               <button
                 type="button"
                 onClick={clearFilters}
-                className="rounded-lg border border-gray-200 px-4 py-3 text-base sm:text-sm font-semibold text-gray-700 transition hover:border-emerald-500 hover:text-emerald-600"
+                className="col-span-2 sm:col-span-1 rounded-lg border border-gray-200 px-3 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm font-semibold text-gray-700 transition hover:border-emerald-500 hover:text-emerald-600 md:col-span-1"
               >
                 Clear
               </button>
