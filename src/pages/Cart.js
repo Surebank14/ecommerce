@@ -268,7 +268,6 @@ const Cart = () => {
       customerEmail: customerEmail,
       accountNumber: customer?.phone,
       callbackUrl: `${window.location.origin}/payment/verify`,
-      amountToCharge: amountToPay,
     };
 
     openPaymentSourceModal(paymentData);
