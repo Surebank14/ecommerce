@@ -49,7 +49,6 @@ const Wallet = () => {
   }, [authCustomer?.email]);
 
   const walletBalance = useMemo(() => Number(account?.availableBalance || 0), [account?.availableBalance]);
-  const ledgerBalance = useMemo(() => Number(account?.ledgerBalance || 0), [account?.ledgerBalance]);
 
   const handleFundWallet = (event) => {
     event.preventDefault();
@@ -97,14 +96,10 @@ const Wallet = () => {
 
       <div className="grid gap-6 lg:grid-cols-[1.3fr,0.9fr]">
         <section className="bg-white rounded-3xl shadow-sm border border-gray-100 p-4 sm:p-6">
-          <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-3">
+          <div className="grid gap-4 sm:grid-cols-2">
             <div className="rounded-2xl bg-orange-50 p-5">
               <p className="text-sm text-orange-700">Wallet Balance</p>
               <p className="mt-2 text-3xl font-bold text-gray-900">{formatCurrency(walletBalance)}</p>
-            </div>
-            <div className="rounded-2xl bg-gray-50 p-5">
-              <p className="text-sm text-gray-500">Ledger Balance</p>
-              <p className="mt-2 text-2xl font-semibold text-gray-900">{formatCurrency(ledgerBalance)}</p>
             </div>
             <div className="rounded-2xl bg-gray-50 p-5">
               <p className="text-sm text-gray-500">Wallet Number</p>

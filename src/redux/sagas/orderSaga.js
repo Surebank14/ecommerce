@@ -59,6 +59,11 @@ function* initializePaymentSaga(action) {
 
     yield put(initializePaymentSuccess(response.data.data));
 
+    if (response.data.data?.paymentSource === 'wallet' && response.data.data?.order) {
+      yield put(clearCartSuccess());
+      yield put(fetchWalletRequest());
+    }
+
     // Call the callback with payment data if provided
     if (action.payload.onSuccess) {
       action.payload.onSuccess(response.data.data);

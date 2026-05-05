@@ -75,9 +75,13 @@ const Orders = () => {
                   </span>
                   <Link
                     to={`/order-confirmation/${order.orderNumber}`}
-                    className="text-primary-600 hover:text-primary-700 text-sm"
+                    className={
+                      order.paymentType === 'installment'
+                        ? 'inline-flex items-center gap-1.5 rounded-full bg-gradient-to-r from-orange-500 via-amber-500 to-emerald-500 px-3 py-1.5 text-xs font-semibold text-white shadow-md transition hover:scale-[1.02] hover:shadow-lg sm:gap-2 sm:px-4 sm:py-2 sm:text-sm'
+                        : 'text-primary-600 hover:text-primary-700 text-sm font-medium'
+                    }
                   >
-                    {order.paymentType === 'installment' ? 'View Payment Schedule' : 'View Details'}
+                    {order.paymentType === 'installment' ? 'make payment' : 'View Details'}
                   </Link>
                 </div>
               </div>

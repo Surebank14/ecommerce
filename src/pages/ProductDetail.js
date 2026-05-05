@@ -5,6 +5,7 @@ import { fetchProductByIdRequest, clearProduct } from '../redux/slices/productSl
 import { addToCartRequest } from '../redux/slices/cartSlice';
 import { loginRequest, registerRequest, clearError } from '../redux/slices/authSlice';
 import { initializePaymentRequest, clearPaymentState } from '../redux/slices/orderSlice';
+import { fetchWalletRequest } from '../redux/slices/walletSlice';
 import { getStates, getLGAs, getTowns } from '../data/nigerianLocations';
 import { handleImageFallback, PRODUCT_FALLBACK_IMAGE, resolveImageUrl } from '../utils/image';
 
@@ -16,6 +17,7 @@ const ProductDetail = () => {
   const { loading: cartLoading } = useSelector((state) => state.cart);
   const { isAuthenticated, customer, loading: authLoading, error: authError } = useSelector((state) => state.auth);
   const { paymentLoading, paymentError, paymentVerified } = useSelector((state) => state.orders);
+  const { account: walletAccount } = useSelector((state) => state.wallet);
   const prevAuthRef = useRef(isAuthenticated);
   const [selectedImage, setSelectedImage] = useState(0);
   const [showPlanSetup, setShowPlanSetup] = useState(false);
@@ -48,6 +50,8 @@ const ProductDetail = () => {
   const [customerEmail, setCustomerEmail] = useState('');
   const [processingPayment, setProcessingPayment] = useState(false);
   const [paymentErrorMessage, setPaymentErrorMessage] = useState('');
+  const [showPaymentSourceModal, setShowPaymentSourceModal] = useState(false);
+  const [pendingPaymentData, setPendingPaymentData] = useState(null);
 
   // Buy Now Once flow states
   const [showBuyNowSetup, setShowBuyNowSetup] = useState(false);
@@ -121,6 +125,12 @@ const ProductDetail = () => {
       dispatch(clearError());
     }
   }, [showAddressInput, dispatch]);
+
+  useEffect(() => {
+    if (isAuthenticated) {
+      dispatch(fetchWalletRequest());
+    }
+  }, [dispatch, isAuthenticated]);
 
   const handleLogin = () => {
     if (loginForm.phone && loginForm.password) {
@@ -220,7 +230,6 @@ const ProductDetail = () => {
       return;
     }
 
-    setProcessingPayment(true);
     setPaymentErrorMessage('');
 
     const shippingAddress = deliveryMethod === 'home'
@@ -238,34 +247,16 @@ const ProductDetail = () => {
       callbackUrl: `${window.location.origin}/payment/verify`,
       productId: product._id,
       quantity: 1,
-      deliveryMethod: deliveryMethod,
+      amountToCharge: Number(product?.price || 0),
+      deliveryMethod,
       pickupLocationId: selectedPickupLocation?.id || null
     };
 
-    console.log('Buy Now payment data:', paymentData);
-
-    dispatch(initializePaymentRequest({
-      paymentData,
-      onSuccess: (data) => {
-        console.log('Buy Now payment initialized, received:', data);
-        if (data && data.authorization_url) {
-          console.log('Redirecting to Paystack:', data.authorization_url);
-          window.location.href = data.authorization_url;
-        } else {
-          console.error('No authorization_url in response:', data);
-          setProcessingPayment(false);
-          setPaymentErrorMessage('Failed to get payment URL. Please try again.');
-        }
-      },
-      onError: (error) => {
-        console.error('Payment initialization error:', error);
-        setProcessingPayment(false);
-        setPaymentErrorMessage(error || 'Payment initialization failed. Please try again.');
-      }
-    }));
+    setPendingPaymentData(paymentData);
+    setShowPaymentSourceModal(true);
   }, [
     isAuthenticated, buyNowEmail, deliveryMethod, buyNowAddress, buyNowState,
-    buyNowLGA, buyNowTown, selectedPickupLocation, customer, product, dispatch
+    buyNowLGA, buyNowTown, selectedPickupLocation, customer, product
   ]);
 
   // Load Paystack script
@@ -298,9 +289,62 @@ const ProductDetail = () => {
     }
   }, [paymentVerified]);
 
+  const walletBalance = Number(walletAccount?.availableBalance || 0);
+
+  const submitPayment = useCallback((paymentData) => {
+    setProcessingPayment(true);
+    setPaymentErrorMessage('');
+
+    dispatch(initializePaymentRequest({
+      paymentData,
+      onSuccess: (data) => {
+        if (data?.paymentSource === 'wallet' && data?.order) {
+          setProcessingPayment(false);
+          setShowPaymentSourceModal(false);
+          navigate(`/order-confirmation/${data.order.orderNumber}`);
+          return;
+        }
+
+        if (data?.authorization_url) {
+          window.location.href = data.authorization_url;
+          return;
+        }
+
+        setProcessingPayment(false);
+        setPaymentErrorMessage('Failed to get payment URL. Please try again.');
+      },
+      onError: (error) => {
+        setProcessingPayment(false);
+        setPaymentErrorMessage(error || 'Payment initialization failed. Please try again.');
+      }
+    }));
+  }, [dispatch, navigate]);
+
+  const handleBankPayment = useCallback(() => {
+    if (!pendingPaymentData) {
+      return;
+    }
+
+    submitPayment({ ...pendingPaymentData, paymentSource: 'bank' });
+  }, [pendingPaymentData, submitPayment]);
+
+  const handleWalletPayment = useCallback(() => {
+    if (!pendingPaymentData) {
+      return;
+    }
+
+    const requiredAmount = Number(pendingPaymentData.amountToCharge || 0);
+    if (walletBalance < requiredAmount) {
+      setPaymentErrorMessage(`Insufficient wallet balance. Available: ₦${walletBalance.toLocaleString()}, Required: ₦${requiredAmount.toLocaleString()}`);
+      return;
+    }
+
+    submitPayment({ ...pendingPaymentData, paymentSource: 'wallet' });
+  }, [pendingPaymentData, submitPayment, walletBalance]);
+
   const handlePaySmallSmall = useCallback(() => {
     if (!isAuthenticated) {
-      navigate('/login?redirect=checkout');
+      setShowAddressInput(true);
       return;
     }
 
@@ -321,7 +365,6 @@ const ProductDetail = () => {
       return;
     }
 
-    setProcessingPayment(true);
     setPaymentErrorMessage('');
 
     // Initialize payment request - include productId so backend adds to cart
@@ -342,28 +385,11 @@ const ProductDetail = () => {
       quantity: 1
     };
 
-    console.log('Sending payment data:', paymentData);
-
-    dispatch(initializePaymentRequest({
-      paymentData,
-      onSuccess: (data) => {
-        console.log('Payment initialized, received:', data);
-        // Redirect to Paystack checkout page
-        if (data.authorization_url) {
-          window.location.href = data.authorization_url;
-        } else {
-          setProcessingPayment(false);
-          setPaymentErrorMessage('Failed to get payment URL');
-        }
-      },
-      onError: (error) => {
-        setProcessingPayment(false);
-        setPaymentErrorMessage(error);
-      }
-    }));
+    setPendingPaymentData(paymentData);
+    setShowPaymentSourceModal(true);
   }, [
     isAuthenticated, customerEmail, customer, product, firstPaymentAmount,
-    deliveryAddress, selectedLGA, selectedState, dispatch, navigate, signupForm.phone
+    deliveryAddress, selectedLGA, selectedState, signupForm.phone
   ]);
 
   const getCategoryName = (categoryId) => {
@@ -1208,6 +1234,93 @@ const ProductDetail = () => {
         </div>
       )}
 
+      {showPaymentSourceModal && pendingPaymentData && (
+        <div className="fixed inset-0 z-[55] flex items-center justify-center bg-black/50 p-4">
+          <div className="w-full max-w-md rounded-3xl bg-white p-6 shadow-2xl">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <h3 className="text-lg font-bold text-gray-900">Choose how to pay</h3>
+                <p className="mt-1 text-sm text-gray-500">
+                  Pay now from your wallet or continue with bank payment through Paystack.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  if (processingPayment || paymentLoading) {
+                    return;
+                  }
+                  setShowPaymentSourceModal(false);
+                  setPendingPaymentData(null);
+                  setPaymentErrorMessage('');
+                }}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                x
+              </button>
+            </div>
+
+            <div className="mt-5 rounded-2xl bg-orange-50 p-4">
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-gray-600">Amount due now</span>
+                <span className="font-bold text-orange-600">
+                  ₦{Number(pendingPaymentData.amountToCharge || 0).toLocaleString()}
+                </span>
+              </div>
+              <div className="mt-2 flex items-center justify-between text-sm">
+                <span className="text-gray-600">Wallet balance</span>
+                <span className={`font-semibold ${walletBalance >= Number(pendingPaymentData.amountToCharge || 0) ? 'text-emerald-600' : 'text-red-600'}`}>
+                  ₦{walletBalance.toLocaleString()}
+                </span>
+              </div>
+            </div>
+
+            {walletBalance < Number(pendingPaymentData.amountToCharge || 0) && (
+              <div className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+                Your wallet balance is not enough for this payment yet. You can fund your wallet or pay from bank.
+              </div>
+            )}
+
+            {(paymentErrorMessage || paymentError) && (
+              <div className="mt-4 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                {paymentErrorMessage || paymentError}
+              </div>
+            )}
+
+            <div className="mt-5 grid gap-3">
+              <button
+                type="button"
+                onClick={handleWalletPayment}
+                disabled={processingPayment || paymentLoading || walletBalance < Number(pendingPaymentData.amountToCharge || 0)}
+                className="rounded-2xl bg-gradient-to-r from-emerald-500 to-green-600 px-4 py-3 text-sm font-semibold text-white shadow-lg transition hover:shadow-xl disabled:cursor-not-allowed disabled:from-gray-300 disabled:to-gray-400"
+              >
+                {processingPayment || paymentLoading ? 'Processing...' : 'Pay from Wallet'}
+              </button>
+              <button
+                type="button"
+                onClick={handleBankPayment}
+                disabled={processingPayment || paymentLoading}
+                className="rounded-2xl bg-gradient-to-r from-orange-500 via-amber-500 to-yellow-500 px-4 py-3 text-sm font-semibold text-white shadow-lg transition hover:shadow-xl disabled:cursor-not-allowed disabled:from-gray-300 disabled:to-gray-400"
+              >
+                {processingPayment || paymentLoading ? 'Processing...' : 'Pay from Bank'}
+              </button>
+              {walletBalance < Number(pendingPaymentData.amountToCharge || 0) && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowPaymentSourceModal(false);
+                    navigate('/wallet');
+                  }}
+                  className="text-center text-sm font-medium text-orange-600 hover:text-orange-700"
+                >
+                  Fund wallet instead
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Terms & Conditions Modal */}
       {showTermsModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
@@ -1303,8 +1416,8 @@ const ProductDetail = () => {
 
       {/* Address Input Modal */}
       {showAddressInput && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 overflow-y-auto">
-          <div className={`${isAuthenticated ? 'bg-white' : 'bg-orange-50'} rounded-xl max-w-md w-full overflow-hidden my-4`}>
+        <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/50 p-4 pt-10 sm:items-center sm:pt-4">
+          <div className={`${isAuthenticated ? 'bg-white' : 'bg-orange-50'} mt-4 w-full max-w-md overflow-hidden rounded-xl sm:mt-0`}>
             {/* Header */}
             <div className="p-4 flex justify-between items-center">
               {!isAuthenticated ? (
@@ -1410,6 +1523,7 @@ const ProductDetail = () => {
                             )}
                           </button>
                         </div>
+                        <p className="text-xs text-gray-500">At least 6 characters</p>
                       </div>
 
                       <button
