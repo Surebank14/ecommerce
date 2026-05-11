@@ -132,16 +132,16 @@ const Cart = () => {
     { id: 4, name: 'SureBank Lekki Branch', address: '10 Admiralty Way, Lekki Phase 1, Lagos', phone: '+2348034567890', area: 'Lekki Lagos' }
   ];
 
-  const handleQuantityChange = (productId, quantity) => {
+  const handleQuantityChange = (productId, quantity, variationId = '') => {
     if (quantity < 1) {
-      dispatch(removeFromCartRequest({ productId }));
+      dispatch(removeFromCartRequest({ productId, variationId }));
     } else {
-      dispatch(updateCartItemRequest({ productId, quantity }));
+      dispatch(updateCartItemRequest({ productId, quantity, variationId }));
     }
   };
 
-  const handleRemove = (productId) => {
-    dispatch(removeFromCartRequest({ productId }));
+  const handleRemove = (productId, variationId = '') => {
+    dispatch(removeFromCartRequest({ productId, variationId }));
   };
 
   const handleClearCart = () => {
@@ -416,7 +416,7 @@ const Cart = () => {
         {/* Cart Items */}
         <div className="mt-4 space-y-3">
           {items.map((item) => (
-            <div key={item.productId} className="bg-white rounded-xl p-4 shadow-sm">
+            <div key={`${item.productId}-${item.variationId || 'default'}`} className="bg-white rounded-xl p-4 shadow-sm">
               <div className="flex gap-4">
                 {/* Product Image */}
                 <Link to={`/product/${item.productId}`} className="flex-shrink-0">
@@ -432,6 +432,14 @@ const Cart = () => {
                   <Link to={`/product/${item.productId}`}>
                     <h3 className="font-medium text-gray-900 text-sm line-clamp-2">{item.productName}</h3>
                   </Link>
+                  {item.variationName && (
+                    <p className="text-xs text-gray-500 mt-1">{item.variationName}</p>
+                  )}
+                  {item.selectedOptions && Object.keys(item.selectedOptions).length > 0 && (
+                    <p className="text-xs text-gray-400 mt-1">
+                      {Object.entries(item.selectedOptions).map(([name, value]) => `${name}: ${value}`).join(' • ')}
+                    </p>
+                  )}
 
                   {/* Price */}
                   <div className="mt-2">
@@ -443,7 +451,7 @@ const Cart = () => {
                   <div className="flex flex-wrap items-center gap-2 mt-3">
                     <div className="inline-flex items-center bg-orange-500 rounded-full overflow-hidden">
                       <button
-                        onClick={() => handleQuantityChange(item.productId, item.quantity - 1)}
+                        onClick={() => handleQuantityChange(item.productId, item.quantity - 1, item.variationId || '')}
                         disabled={loading}
                         className="px-3 py-2 text-white hover:bg-orange-600 disabled:opacity-50 transition-colors"
                       >
@@ -455,7 +463,7 @@ const Cart = () => {
                         {item.quantity}
                       </span>
                       <button
-                        onClick={() => handleQuantityChange(item.productId, item.quantity + 1)}
+                        onClick={() => handleQuantityChange(item.productId, item.quantity + 1, item.variationId || '')}
                         disabled={loading}
                         className="px-3 py-2 text-white hover:bg-orange-600 disabled:opacity-50 transition-colors"
                       >
@@ -465,7 +473,7 @@ const Cart = () => {
                       </button>
                     </div>
                     <button
-                      onClick={() => handleRemove(item.productId)}
+                      onClick={() => handleRemove(item.productId, item.variationId || '')}
                       disabled={loading}
                       className="p-2 text-gray-400 hover:text-red-500 transition-colors"
                       title="Remove item"

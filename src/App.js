@@ -8,6 +8,7 @@ import { fetchCategoriesRequest } from './redux/slices/productSlice';
 import Header from './components/Header';
 import Footer from './components/Footer';
 import PwaInstallPrompt from './components/PwaInstallPrompt';
+import WhatsAppSupport from './components/WhatsAppSupport';
 
 // Pages
 import Home from './pages/Home';
@@ -37,6 +38,7 @@ const Layout = ({ children }) => {
       <PwaInstallPrompt />
       <Header />
       <main className="flex-1 bg-gray-50">{children}</main>
+      <WhatsAppSupport />
       <Footer />
     </div>
   );

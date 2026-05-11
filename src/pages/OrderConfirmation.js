@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import axios from 'axios';
 import { Link, useParams } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
 import {
@@ -8,6 +9,7 @@ import {
   initializeOrderDepositRequest
 } from '../redux/slices/orderSlice';
 import { fetchWalletRequest } from '../redux/slices/walletSlice';
+import { API_URL, getAuthHeader } from '../utils/api';
 
 const OrderConfirmation = () => {
   const dispatch = useDispatch();
@@ -17,6 +19,11 @@ const OrderConfirmation = () => {
   const [showDepositModal, setShowDepositModal] = useState(false);
   const [depositAmount, setDepositAmount] = useState('');
   const [depositError, setDepositError] = useState('');
+  const [reviewRating, setReviewRating] = useState(5);
+  const [reviewText, setReviewText] = useState('');
+  const [reviewMessage, setReviewMessage] = useState('');
+  const [reviewError, setReviewError] = useState('');
+  const [reviewSubmitting, setReviewSubmitting] = useState(false);
 
   useEffect(() => {
     dispatch(fetchOrderByNumberRequest({ orderNumber }));
@@ -109,6 +116,38 @@ const OrderConfirmation = () => {
     }));
   };
 
+  const handleSubmitReview = async () => {
+    if (!reviewText.trim()) {
+      setReviewError('Please write your feedback');
+      return;
+    }
+
+    setReviewSubmitting(true);
+    setReviewError('');
+    setReviewMessage('');
+
+    try {
+      await axios.post(
+        `${API_URL}/api/product-reviews`,
+        {
+          orderNumber: order.orderNumber,
+          rating: reviewRating,
+          review: reviewText
+        },
+        { headers: getAuthHeader() }
+      );
+      setReviewText('');
+      setReviewRating(5);
+      setReviewMessage('Thanks for your feedback. It may appear after admin approval.');
+    } catch (err) {
+      setReviewError(err.response?.data?.message || 'Failed to submit feedback');
+    } finally {
+      setReviewSubmitting(false);
+    }
+  };
+
+  const canReviewExperience = ['paid', 'partial'].includes(order.paymentStatus);
+
   return (
     <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       {/* Success Message */}
@@ -174,6 +213,45 @@ const OrderConfirmation = () => {
           </div>
         </div>
       </div>
+
+      {canReviewExperience && (
+        <div className="bg-white rounded-lg shadow p-4 sm:p-6 mb-6">
+          <div className="flex flex-col gap-1">
+            <h2 className="text-lg font-semibold">How was your experience?</h2>
+            <p className="text-sm text-gray-500">This is optional and helps us improve the Surebank shop.</p>
+          </div>
+          <div className="mt-3 flex gap-1">
+            {[1, 2, 3, 4, 5].map((rating) => (
+              <button
+                key={rating}
+                type="button"
+                onClick={() => setReviewRating(rating)}
+                className={`text-2xl ${rating <= reviewRating ? 'text-orange-500' : 'text-gray-300'}`}
+                aria-label={`${rating} star rating`}
+              >
+                ★
+              </button>
+            ))}
+          </div>
+          <textarea
+            value={reviewText}
+            onChange={(event) => setReviewText(event.target.value)}
+            rows={3}
+            placeholder="Tell us about your payment and shopping experience"
+            className="mt-3 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-orange-500 focus:outline-none focus:ring-2 focus:ring-orange-100"
+          />
+          {reviewError && <p className="mt-2 text-xs text-red-600">{reviewError}</p>}
+          {reviewMessage && <p className="mt-2 text-xs text-green-600">{reviewMessage}</p>}
+          <button
+            type="button"
+            onClick={handleSubmitReview}
+            disabled={reviewSubmitting || !reviewText.trim()}
+            className="mt-3 rounded-full bg-orange-500 px-5 py-2 text-sm font-semibold text-white hover:bg-orange-600 disabled:opacity-60"
+          >
+            {reviewSubmitting ? 'Submitting...' : 'Submit optional feedback'}
+          </button>
+        </div>
+      )}
 
       {/* Installment Plan */}
       {order.paymentType === 'installment' && order.installmentPlan && (

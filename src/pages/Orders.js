@@ -32,6 +32,14 @@ const Orders = () => {
     return colors[status] || 'bg-gray-100 text-gray-800';
   };
 
+  const getSelectedOptionsText = (item) => {
+    if (!item?.selectedOptions) return "";
+    return Object.entries(item.selectedOptions)
+      .filter(([, value]) => value)
+      .map(([name, value]) => `${name}: ${value}`)
+      .join(" • ");
+  };
+
   if (loading) {
     return (
       <div className="flex justify-center py-20">
@@ -90,8 +98,17 @@ const Orders = () => {
                 <div className="flex flex-wrap gap-4">
                   {order.items?.slice(0, 3).map((item, index) => (
                     <div key={index} className="text-sm">
-                      <span className="text-gray-600">{item.productName}</span>
-                      <span className="text-gray-400 ml-1">x{item.quantity}</span>
+                      <div>
+                        <span className="text-gray-600">{item.productName}</span>
+                        <span className="text-gray-400 ml-1">x{item.quantity}</span>
+                      </div>
+                      {(item.variationName || getSelectedOptionsText(item)) && (
+                        <div className="mt-1 text-xs text-gray-500">
+                          {item.variationName && <span>{item.variationName}</span>}
+                          {item.variationName && getSelectedOptionsText(item) && <span> • </span>}
+                          {getSelectedOptionsText(item) && <span>{getSelectedOptionsText(item)}</span>}
+                        </div>
+                      )}
                     </div>
                   ))}
                   {order.items?.length > 3 && (

@@ -20,6 +20,8 @@ const ProductDetail = () => {
   const { account: walletAccount } = useSelector((state) => state.wallet);
   const prevAuthRef = useRef(isAuthenticated);
   const [selectedImage, setSelectedImage] = useState(0);
+  const [selectedVariationId, setSelectedVariationId] = useState('');
+  const [showAllVariations, setShowAllVariations] = useState(false);
   const [showPlanSetup, setShowPlanSetup] = useState(false);
   const [firstPaymentAmount, setFirstPaymentAmount] = useState('');
   const [showShippingInfo, setShowShippingInfo] = useState(false);
@@ -97,6 +99,19 @@ const ProductDetail = () => {
     }
   ];
 
+  const activeVariations = Array.isArray(product?.variations)
+    ? product.variations.filter((variation) => variation && variation.isActive !== false)
+    : [];
+  const hasVariations = (product?.hasVariations === true || activeVariations.length > 0) && activeVariations.length > 0;
+  const selectedVariation = hasVariations
+    ? activeVariations.find((variation) => variation._id === selectedVariationId)
+    : null;
+  const selectedPrice = selectedVariation ? selectedVariation.price : product?.price;
+  const visibleVariations = showAllVariations
+    ? activeVariations
+    : activeVariations.slice(0, 2);
+  const hiddenVariationCount = Math.max(0, activeVariations.length - 2);
+
   // Close modal and set address when auth state changes (user logs in)
   useEffect(() => {
     if (!prevAuthRef.current && isAuthenticated && showAddressInput) {
@@ -163,8 +178,18 @@ const ProductDetail = () => {
     };
   }, [dispatch, id]);
 
+
   const handleAddToCart = () => {
-    dispatch(addToCartRequest({ productId: product._id, quantity: 1 }));
+    if (hasVariations && !selectedVariation) {
+      setPaymentErrorMessage('Please select a product variation');
+      return;
+    }
+
+    dispatch(addToCartRequest({
+      productId: product._id,
+      quantity: 1,
+      variationId: selectedVariation?._id || '',
+    }));
   };
 
   const handleBuyNow = () => {
@@ -203,6 +228,11 @@ const ProductDetail = () => {
     if (!isAuthenticated) {
       // Show login/signup modal instead of navigating away
       setShowAddressInput(true);
+      return;
+    }
+
+    if (hasVariations && !selectedVariation) {
+      setPaymentErrorMessage('Please select a product variation');
       return;
     }
 
@@ -247,7 +277,8 @@ const ProductDetail = () => {
       callbackUrl: `${window.location.origin}/payment/verify`,
       productId: product._id,
       quantity: 1,
-      amountToCharge: Number(product?.price || 0),
+      variationId: selectedVariation?._id || '',
+      amountToCharge: Number(selectedPrice || 0),
       deliveryMethod,
       pickupLocationId: selectedPickupLocation?.id || null
     };
@@ -256,7 +287,7 @@ const ProductDetail = () => {
     setShowPaymentSourceModal(true);
   }, [
     isAuthenticated, buyNowEmail, deliveryMethod, buyNowAddress, buyNowState,
-    buyNowLGA, buyNowTown, selectedPickupLocation, customer, product
+    buyNowLGA, buyNowTown, selectedPickupLocation, customer, product, hasVariations, selectedVariation, selectedPrice
   ]);
 
   // Load Paystack script
@@ -360,8 +391,12 @@ const ProductDetail = () => {
       setPaymentErrorMessage('Please enter the amount you want to pay now');
       return;
     }
-    if (amountToPay > Number(product?.price || 0)) {
-      setPaymentErrorMessage(`First payment cannot exceed ₦${Number(product?.price || 0).toLocaleString()}`);
+    if (hasVariations && !selectedVariation) {
+      setPaymentErrorMessage('Please select a product variation');
+      return;
+    }
+    if (amountToPay > Number(selectedPrice || 0)) {
+      setPaymentErrorMessage(`First payment cannot exceed ₦${Number(selectedPrice || 0).toLocaleString()}`);
       return;
     }
 
@@ -382,6 +417,7 @@ const ProductDetail = () => {
       accountNumber: customer?.phone,
       callbackUrl: `${window.location.origin}/payment/verify`,
       productId: product._id,
+      variationId: selectedVariation?._id || '',
       quantity: 1
     };
 
@@ -389,7 +425,7 @@ const ProductDetail = () => {
     setShowPaymentSourceModal(true);
   }, [
     isAuthenticated, customerEmail, customer, product, firstPaymentAmount,
-    deliveryAddress, selectedLGA, selectedState, signupForm.phone
+    deliveryAddress, selectedLGA, selectedState, signupForm.phone, hasVariations, selectedVariation, selectedPrice
   ]);
 
   const getCategoryName = (categoryId) => {
@@ -421,7 +457,13 @@ const ProductDetail = () => {
 
   useEffect(() => {
     setSelectedImage(0);
+    setSelectedVariationId('');
+    setShowAllVariations(false);
   }, [id]);
+
+  useEffect(() => {
+    setSelectedImage(0);
+  }, [selectedVariationId]);
 
   useEffect(() => {
     if (!product?.images || product.images.length <= 1) {
@@ -457,9 +499,12 @@ const ProductDetail = () => {
     );
   }
 
-  const images = product.images && product.images.length > 0
+  const productImages = product.images && product.images.length > 0
     ? product.images.map((img) => resolveImageUrl(img))
     : [PRODUCT_FALLBACK_IMAGE];
+  const images = selectedVariation?.image
+    ? [resolveImageUrl(selectedVariation.image), ...productImages]
+    : productImages;
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -535,7 +580,7 @@ const ProductDetail = () => {
           <div className="flex items-center gap-3">
             <button
               onClick={handleAddToCart}
-              disabled={cartLoading}
+              disabled={cartLoading || (hasVariations && !selectedVariation)}
               className="p-2 rounded-full border border-gray-200 hover:bg-gray-50 hover:border-orange-300 disabled:opacity-50 transition-colors"
               title="Add to cart"
             >
@@ -566,8 +611,71 @@ const ProductDetail = () => {
         <h3 className="text-base font-medium text-gray-900 mt-4">{product.name}</h3>
 
         <p className="text-xl font-bold text-orange-500 mt-2">
-          ₦{product.price?.toLocaleString()}
+          ₦{selectedPrice?.toLocaleString()}
         </p>
+
+        {hasVariations && (
+          <div className="mt-4">
+            <p className="text-sm font-medium text-gray-700 mb-2">Choose variation</p>
+            <div className="grid grid-cols-1 gap-2">
+              {visibleVariations.map((variation) => {
+                const optionEntries = Object.entries(variation.optionValues || {});
+                const isSelected = selectedVariationId === variation._id;
+
+                return (
+                  <button
+                    key={variation._id}
+                    type="button"
+                    onClick={() => {
+                      setSelectedVariationId(variation._id);
+                      setPaymentErrorMessage('');
+                    }}
+                    className={`text-left rounded-lg border p-3 transition-colors ${
+                      isSelected
+                        ? 'border-orange-500 bg-orange-50'
+                        : 'border-gray-200 hover:border-orange-300'
+                    }`}
+                  >
+                    <div className="flex items-start gap-3">
+                      {variation.image && (
+                        <img
+                          src={resolveImageUrl(variation.image)}
+                          alt={variation.name || product.name}
+                          className="h-14 w-14 flex-shrink-0 rounded-md border border-gray-200 object-cover"
+                          onError={handleImageFallback}
+                        />
+                      )}
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center justify-between gap-3">
+                          <span className="text-sm font-semibold text-gray-900">
+                            {variation.name || optionEntries.map(([, value]) => value).join(' / ')}
+                          </span>
+                          <span className="text-sm font-bold text-orange-500">
+                            ₦{Number(variation.price || 0).toLocaleString()}
+                          </span>
+                        </div>
+                        {optionEntries.length > 0 && (
+                          <p className="mt-1 text-xs text-gray-500">
+                            {optionEntries.map(([name, value]) => `${name}: ${value}`).join(' • ')}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+            {hiddenVariationCount > 0 && (
+              <button
+                type="button"
+                onClick={() => setShowAllVariations((prev) => !prev)}
+                className="mt-3 text-sm font-medium text-orange-500 hover:text-orange-600"
+              >
+                {showAllVariations ? 'Show less' : `Show ${hiddenVariationCount} more`}
+              </button>
+            )}
+          </div>
+        )}
 
         <div className="flex items-center gap-3 mt-3">
           <button
@@ -603,7 +711,7 @@ const ProductDetail = () => {
           {/* Payment Summary Header */}
           <div className="bg-orange-50 rounded-lg p-4 mb-4">
             <p className="text-center text-gray-700">
-              You will pay <span className="text-orange-500 font-bold">₦{product.price?.toLocaleString()}</span> once.
+              You will pay <span className="text-orange-500 font-bold">₦{selectedPrice?.toLocaleString()}</span> once.
             </p>
             <p className="text-center text-sm text-gray-500 mt-2">
               Your item will be shipped between{' '}
@@ -882,7 +990,7 @@ const ProductDetail = () => {
                     1 payment
                   </span>
                   <span className="px-4 py-2 bg-white rounded-full text-sm text-orange-500 font-semibold border border-orange-200">
-                    ₦{product.price?.toLocaleString()} due now
+                    ₦{selectedPrice?.toLocaleString()} due now
                   </span>
                 </div>
               </div>
@@ -962,23 +1070,23 @@ const ProductDetail = () => {
           <div className="mt-4 rounded-lg border border-orange-200 bg-orange-50 p-3">
             <div className="flex justify-between text-sm">
               <span className="text-gray-600">Product price</span>
-              <span className="font-semibold">₦{product.price?.toLocaleString()}</span>
+              <span className="font-semibold">₦{selectedPrice?.toLocaleString()}</span>
             </div>
             <label className="mt-3 block text-sm font-medium text-gray-700">First payment amount</label>
             <input
               type="number"
               min="1"
-              max={product.price}
+              max={selectedPrice}
               value={firstPaymentAmount}
               onChange={(e) => setFirstPaymentAmount(e.target.value)}
               placeholder="Enter amount to pay now"
               className="mt-1 w-full rounded-lg border border-orange-200 px-4 py-3 text-sm focus:border-orange-500 focus:outline-none focus:ring-2 focus:ring-orange-500"
             />
             <p className="mt-2 text-xs text-gray-500">
-              Remaining balance after this payment: ₦{Math.max(0, Number(product.price || 0) - Number(firstPaymentAmount || 0)).toLocaleString()}
+              Remaining balance after this payment: ₦{Math.max(0, Number(selectedPrice || 0) - Number(firstPaymentAmount || 0)).toLocaleString()}
             </p>
 
-            {Number(firstPaymentAmount) > 0 && Number(firstPaymentAmount) <= Number(product.price || 0) && (
+            {Number(firstPaymentAmount) > 0 && Number(firstPaymentAmount) <= Number(selectedPrice || 0) && (
               <div className="mt-4 pt-4 border-t border-orange-200">
                 <div className="flex justify-between items-start">
                   <span className="text-sm font-medium text-gray-700">Delivery Address</span>

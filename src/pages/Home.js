@@ -1,9 +1,11 @@
 import React, { useEffect, useState, useCallback, useRef } from 'react';
+import axios from 'axios';
 import { Link } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
 import { fetchFeaturedProductsRequest, fetchCategoriesRequest, fetchProductsRequest } from '../redux/slices/productSlice';
 import ProductCard from '../components/ProductCard';
 import { PRODUCT_FALLBACK_IMAGE, resolveImageUrl } from '../utils/image';
+import { API_URL } from '../utils/api';
 
 const heroSlides = [
   {
@@ -51,6 +53,8 @@ const Home = () => {
     subCategoryId: '',
   });
   const [categoryMenuOpen, setCategoryMenuOpen] = useState(false);
+  const [platformReviews, setPlatformReviews] = useState([]);
+  const [showAllPlatformReviews, setShowAllPlatformReviews] = useState(false);
   const categoryMenuRef = useRef(null);
 
   const nextSlide = useCallback(() => {
@@ -89,6 +93,10 @@ const Home = () => {
   const selectedSubCategory = selectedCategory?.subcategories?.find(
     (subCategory) => subCategory._id === filters.subCategoryId
   );
+  const visiblePlatformReviews = showAllPlatformReviews
+    ? platformReviews
+    : platformReviews.slice(0, 3);
+  const hiddenPlatformReviewCount = Math.max(0, platformReviews.length - 3);
 
   const handleCategorySelect = (categoryId, subCategoryId = '') => {
     setFilters((prev) => ({ ...prev, categoryId, subCategoryId }));
@@ -99,6 +107,19 @@ const Home = () => {
     dispatch(fetchFeaturedProductsRequest({ limit: 8 }));
     dispatch(fetchCategoriesRequest());
   }, [dispatch]);
+
+  useEffect(() => {
+    const fetchPlatformReviews = async () => {
+      try {
+        const response = await axios.get(`${API_URL}/api/product-reviews`);
+        setPlatformReviews(Array.isArray(response.data) ? response.data : []);
+      } catch (error) {
+        setPlatformReviews([]);
+      }
+    };
+
+    fetchPlatformReviews();
+  }, []);
 
   useEffect(() => {
     const queryFilters = {};
@@ -561,6 +582,40 @@ const Home = () => {
           </div>
         </div>
       </section>
+
+      {platformReviews.length > 0 && (
+        <section className="py-12 md:py-16 bg-gray-50">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="text-center mb-10">
+              <h2 className="text-2xl font-bold mb-2">Customer experiences</h2>
+              <p className="text-gray-600">What customers say about using surebank shop</p>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              {visiblePlatformReviews.map((review) => (
+                <div key={review._id} className="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm">
+                  <div className="mb-3 text-orange-500">
+                    {'★'.repeat(Number(review.rating || 0))}
+                    <span className="text-gray-300">{'★'.repeat(5 - Number(review.rating || 0))}</span>
+                  </div>
+                  <p className="text-sm text-gray-700">"{review.review}"</p>
+                  <p className="mt-4 text-sm font-semibold text-gray-900">{review.customerName || 'Customer'}</p>
+                </div>
+              ))}
+            </div>
+            {hiddenPlatformReviewCount > 0 && (
+              <div className="mt-8 text-center">
+                <button
+                  type="button"
+                  onClick={() => setShowAllPlatformReviews((prev) => !prev)}
+                  className="rounded-full border border-orange-500 px-5 py-2 text-sm font-semibold text-orange-500 transition hover:bg-orange-50"
+                >
+                  {showAllPlatformReviews ? 'Show less' : `Show ${hiddenPlatformReviewCount} more`}
+                </button>
+              </div>
+            )}
+          </div>
+        </section>
+      )}
 
       {/* Payment Options Section */}
       <section className="py-12 md:py-16 bg-white">

@@ -43,13 +43,14 @@ function* fetchCartSaga() {
 
 function* addToCartSaga(action) {
   try {
-    const { productId, quantity } = action.payload;
+    const { productId, quantity, variationId } = action.payload;
     const token = localStorage.getItem('customerToken');
     const config = token ? { headers: getAuthHeader() } : {};
 
     const response = yield call(axios.post, `${API_URL}/api/cart/add`, {
       productId,
       quantity,
+      variationId,
       sessionId: token ? undefined : getSessionId(),
     }, config);
 
@@ -61,13 +62,14 @@ function* addToCartSaga(action) {
 
 function* updateCartItemSaga(action) {
   try {
-    const { productId, quantity } = action.payload;
+    const { productId, quantity, variationId } = action.payload;
     const token = localStorage.getItem('customerToken');
     const config = token ? { headers: getAuthHeader() } : {};
 
     const response = yield call(axios.put, `${API_URL}/api/cart/update`, {
       productId,
       quantity,
+      variationId,
       sessionId: token ? undefined : getSessionId(),
     }, config);
 
@@ -79,10 +81,13 @@ function* updateCartItemSaga(action) {
 
 function* removeFromCartSaga(action) {
   try {
-    const { productId } = action.payload;
+    const { productId, variationId } = action.payload;
     const token = localStorage.getItem('customerToken');
     const config = token ? { headers: getAuthHeader() } : {};
-    const sessionParam = token ? '' : `?sessionId=${getSessionId()}`;
+    const params = new URLSearchParams();
+    if (!token) params.append('sessionId', getSessionId());
+    if (variationId) params.append('variationId', variationId);
+    const sessionParam = params.toString() ? `?${params.toString()}` : '';
 
     const response = yield call(axios.delete, `${API_URL}/api/cart/remove/${productId}${sessionParam}`, config);
     yield put(removeFromCartSuccess(response.data.cart));
