@@ -270,7 +270,7 @@ const Home = () => {
               <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
               </svg>
-              <span>Free Shipping</span>
+              <span>Pickup & Delivery</span>
             </div>
             <div className="flex items-center gap-2">
               <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -448,10 +448,10 @@ const Home = () => {
               <div className="mb-8">
                 <div className="flex items-center gap-3 mb-2">
                   <div className="w-1 h-8 bg-amber-400 rounded-full"></div>
-                  <h3 className="text-xl md:text-2xl font-bold">Plan & start your installment</h3>
+                <h3 className="text-xl md:text-2xl font-bold">Pay as you like</h3>
                 </div>
                 <p className="text-emerald-100 ml-4 pl-3">
-                  Choose your desired installment. You can choose between 4 - 48 weeks or 2 - 12 months. Then proceed to pay your first payment.
+                  Start with any amount and keep paying any amount whenever you want. There is no fixed duration or payment boundary.
                 </p>
               </div>
 
@@ -459,10 +459,10 @@ const Home = () => {
               <div className="mb-8">
                 <div className="flex items-center gap-3 mb-2">
                   <div className="w-1 h-8 bg-amber-400 rounded-full"></div>
-                  <h3 className="text-xl md:text-2xl font-bold">We will deliver at 50%</h3>
+                  <h3 className="text-xl md:text-2xl font-bold">Collect after full payment</h3>
                 </div>
                 <p className="text-emerald-100 ml-4 pl-3">
-                  Your desired item will be shipped to you before full payment at the mid-point of your installment. Start enjoying your product while you pay!
+                  Your product becomes available for pickup or delivery when you are done paying the full amount.
                 </p>
               </div>
 
@@ -544,7 +544,7 @@ const Home = () => {
                 </svg>
               </div>
               <h3 className="text-lg font-bold mb-2">Flexible Payments</h3>
-              <p className="text-emerald-200 text-sm">Pay in daily, weekly, or monthly installments that fit your budget</p>
+              <p className="text-emerald-200 text-sm">Pay any amount whenever you want, with no fixed duration or boundary</p>
             </div>
 
             {/* Feature 2 */}
@@ -554,8 +554,8 @@ const Home = () => {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" />
                 </svg>
               </div>
-              <h3 className="text-lg font-bold mb-2">Early Delivery</h3>
-              <p className="text-emerald-200 text-sm">Get your product delivered at 50% payment completion</p>
+              <h3 className="text-lg font-bold mb-2">Pickup or Delivery</h3>
+              <p className="text-emerald-200 text-sm">Your product is available for pickup or delivery after full payment</p>
             </div>
 
             {/* Feature 3 */}
@@ -640,8 +640,8 @@ const Home = () => {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                 </svg>
               </div>
-              <h3 className="font-bold text-xl mb-3">Weekly Installments</h3>
-              <p className="text-gray-600">Spread your payments over 4-52 weeks with easy weekly installments</p>
+              <h3 className="font-bold text-xl mb-3">Pay Small Small</h3>
+              <p className="text-gray-600">Start with any amount and continue paying any amount whenever you like</p>
             </div>
             <div className="bg-gradient-to-br from-gray-100 to-white p-6 md:p-8 rounded-2xl text-center border border-gray-200 hover:shadow-xl transition-shadow">
               <div className="w-20 h-20 bg-gray-200 rounded-2xl flex items-center justify-center mx-auto mb-6 rotate-3 hover:rotate-0 transition-transform">
@@ -649,8 +649,8 @@ const Home = () => {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
                 </svg>
               </div>
-              <h3 className="font-bold text-xl mb-3">Monthly Installments</h3>
-              <p className="text-gray-600">Spread your payments over 2-12 months with convenient monthly plans</p>
+              <h3 className="font-bold text-xl mb-3">No Fixed Duration</h3>
+              <p className="text-gray-600">There is no fixed schedule or boundary. Complete payment at your own pace</p>
             </div>
           </div>
         </div>

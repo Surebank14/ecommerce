@@ -24,6 +24,13 @@ const OrderConfirmation = () => {
   const [reviewMessage, setReviewMessage] = useState('');
   const [reviewError, setReviewError] = useState('');
   const [reviewSubmitting, setReviewSubmitting] = useState(false);
+  const [products, setProducts] = useState([]);
+  const [showReplaceModal, setShowReplaceModal] = useState(false);
+  const [replaceItem, setReplaceItem] = useState(null);
+  const [replacementProductId, setReplacementProductId] = useState('');
+  const [replacementVariationId, setReplacementVariationId] = useState('');
+  const [replaceError, setReplaceError] = useState('');
+  const [replaceLoading, setReplaceLoading] = useState(false);
 
   useEffect(() => {
     dispatch(fetchOrderByNumberRequest({ orderNumber }));
@@ -32,6 +39,19 @@ const OrderConfirmation = () => {
       dispatch(clearOrderState());
     };
   }, [dispatch, orderNumber]);
+
+  useEffect(() => {
+    const fetchProducts = async () => {
+      try {
+        const response = await axios.get(`${API_URL}/api/products`);
+        setProducts(Array.isArray(response.data) ? response.data : []);
+      } catch (err) {
+        setProducts([]);
+      }
+    };
+
+    fetchProducts();
+  }, []);
 
   const getStatusColor = (status) => {
     const colors = {
@@ -146,7 +166,74 @@ const OrderConfirmation = () => {
     }
   };
 
-  const canReviewExperience = ['paid', 'partial'].includes(order.paymentStatus);
+  const isBackofficeSBAccount = order.isBackofficeSBAccount || order.source === 'backoffice_sb_account';
+  const canReviewExperience = !isBackofficeSBAccount && ['paid', 'partial'].includes(order.paymentStatus);
+  const canReplaceItems = order.paymentType === 'installment'
+    && !isBackofficeSBAccount
+    && order.paymentStatus !== 'paid'
+    && remainingBalance > 0
+    && !['delivered', 'shipped', 'cancelled'].includes(order.status);
+  const selectedReplacementProduct = products.find((product) => product._id === replacementProductId);
+  const activeReplacementVariations = selectedReplacementProduct?.hasVariations && Array.isArray(selectedReplacementProduct.variations)
+    ? selectedReplacementProduct.variations.filter((variation) => variation.isActive !== false)
+    : [];
+  const selectedReplacementVariation = activeReplacementVariations.find(
+    (variation) => variation._id === replacementVariationId
+  );
+  const replacementUnitPrice = selectedReplacementVariation
+    ? Number(selectedReplacementVariation.price || 0)
+    : Number(selectedReplacementProduct?.price || 0);
+  const replacementSubtotal = replacementUnitPrice * Number(replaceItem?.quantity || 1);
+  const replacementOrderTotal = replaceItem
+    ? Number(order.totalAmount || 0) - Number(replaceItem.subtotal || 0) + replacementSubtotal
+    : Number(order.totalAmount || 0);
+  const replacementRemainingBalance = Math.max(0, replacementOrderTotal - totalPaid);
+
+  const openReplaceModal = (item) => {
+    setReplaceItem(item);
+    setReplacementProductId('');
+    setReplacementVariationId('');
+    setReplaceError('');
+    setShowReplaceModal(true);
+  };
+
+  const handleReplaceOrderItem = async () => {
+    if (!replaceItem || !replacementProductId) {
+      setReplaceError('Please select the product you want to change to');
+      return;
+    }
+
+    if (activeReplacementVariations.length > 0 && !replacementVariationId) {
+      setReplaceError('Please select a product variation');
+      return;
+    }
+
+    if (replacementOrderTotal < totalPaid) {
+      setReplaceError(`Replacement total cannot be less than what you have already paid: ₦${totalPaid.toLocaleString()}`);
+      return;
+    }
+
+    setReplaceLoading(true);
+    setReplaceError('');
+
+    try {
+      await axios.put(
+        `${API_URL}/api/ecommerce/orders/number/${order.orderNumber}/items/${replaceItem._id}/replace`,
+        {
+          productId: replacementProductId,
+          variationId: replacementVariationId
+        },
+        { headers: getAuthHeader() }
+      );
+      setShowReplaceModal(false);
+      setReplaceItem(null);
+      dispatch(fetchOrderByNumberRequest({ orderNumber }));
+    } catch (err) {
+      setReplaceError(err.response?.data?.message || 'Failed to change product');
+    } finally {
+      setReplaceLoading(false);
+    }
+  };
 
   return (
     <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -157,7 +244,7 @@ const OrderConfirmation = () => {
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
           </svg>
         </div>
-        <h1 className="text-2xl font-bold mb-2">Order Placed Successfully!</h1>
+        <h1 className="text-2xl font-bold mb-2">{isBackofficeSBAccount ? 'Order Details' : 'Order Placed Successfully!'}</h1>
         <p className="text-gray-600">Order Number: {order.orderNumber}</p>
       </div>
 
@@ -195,12 +282,33 @@ const OrderConfirmation = () => {
       {/* Order Items */}
       <div className="bg-white rounded-lg shadow p-4 sm:p-6 mb-6">
         <h2 className="text-lg font-semibold mb-4">Items Ordered</h2>
+        {canReplaceItems && (
+          <p className="mb-4 rounded-lg bg-orange-50 px-3 py-2 text-sm text-orange-700">
+            You can change products while this pay-small-small order is still ongoing. The remaining balance will be recalculated after the change.
+          </p>
+        )}
         <div className="space-y-4">
           {order.items?.map((item, index) => (
             <div key={index} className="flex flex-col gap-2 sm:flex-row sm:justify-between py-2 border-b last:border-b-0">
               <div>
                 <p className="font-medium">{item.productName}</p>
+                {(item.variationName || (item.selectedOptions && Object.keys(item.selectedOptions).length > 0)) && (
+                  <p className="text-xs text-gray-500">
+                    {[item.variationName, ...Object.entries(item.selectedOptions || {}).map(([name, value]) => `${name}: ${value}`)]
+                      .filter(Boolean)
+                      .join(' • ')}
+                  </p>
+                )}
                 <p className="text-sm text-gray-500">Qty: {item.quantity}</p>
+                {canReplaceItems && (
+                  <button
+                    type="button"
+                    onClick={() => openReplaceModal(item)}
+                    className="mt-3 inline-flex items-center rounded-full bg-orange-500 px-4 py-2 text-sm font-bold text-white shadow-md shadow-orange-100 transition hover:bg-orange-600 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2"
+                  >
+                    Change product
+                  </button>
+                )}
               </div>
               <p className="font-medium">₦{item.subtotal?.toLocaleString()}</p>
             </div>
@@ -349,10 +457,10 @@ const OrderConfirmation = () => {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4 text-sm">
             <div>
               <span className="text-gray-600">Payment Type</span>
-              <p className="font-medium">Flexible pay small small</p>
+              <p className="font-medium">Flexible pay as you like</p>
             </div>
             <div>
-              <span className="text-gray-600">Order SB Account</span>
+              <span className="text-gray-600">Order Account</span>
               <p className="font-medium">{order.SBAccountNumber || 'N/A'}</p>
             </div>
             <div>
@@ -418,11 +526,118 @@ const OrderConfirmation = () => {
 
           <div className="bg-gray-100 p-4 rounded">
             <p className="text-sm text-gray-800">
-              Your SB Account Number: <strong>{order.SBAccountNumber}</strong>
+              Your Order Account Number: <strong>{order.SBAccountNumber}</strong>
             </p>
             <p className="text-sm text-gray-600 mt-1">
-              Use the Deposit for This Order button to pay any amount. Each successful payment credits your wallet, moves the money to this order SB account, and reduces the remaining balance.
+              Use the Deposit for This Order button to pay any amount. Each successful payment credits your wallet, moves the money to this order account, and reduces the remaining balance.
             </p>
+          </div>
+        </div>
+      )}
+
+      {showReplaceModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
+          <div className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-2xl bg-white p-6 shadow-xl">
+            <div className="mb-4 flex items-start justify-between gap-4">
+              <div>
+                <h3 className="text-lg font-bold text-gray-900">Change Product</h3>
+                <p className="mt-1 text-sm text-gray-500">
+                  Choose another product for this ongoing pay-small-small order.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowReplaceModal(false)}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <span className="sr-only">Close</span>
+                ×
+              </button>
+            </div>
+
+            {replaceItem && (
+              <div className="mb-4 rounded-xl border border-gray-200 bg-gray-50 p-3 text-sm">
+                <p className="text-gray-500">Changing</p>
+                <p className="font-semibold text-gray-900">{replaceItem.productName}</p>
+                <p className="text-gray-600">Current subtotal: ₦{Number(replaceItem.subtotal || 0).toLocaleString()}</p>
+              </div>
+            )}
+
+            <label className="mb-1 block text-sm font-medium text-gray-700">New product</label>
+            <select
+              value={replacementProductId}
+              onChange={(event) => {
+                setReplacementProductId(event.target.value);
+                setReplacementVariationId('');
+                setReplaceError('');
+              }}
+              className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm focus:border-orange-500 focus:outline-none focus:ring-2 focus:ring-orange-500"
+            >
+              <option value="">Select product</option>
+              {products.map((product) => (
+                <option key={product._id} value={product._id}>
+                  {product.name} - ₦{Number(product.price || 0).toLocaleString()}
+                </option>
+              ))}
+            </select>
+
+            {activeReplacementVariations.length > 0 && (
+              <div className="mt-4">
+                <label className="mb-1 block text-sm font-medium text-gray-700">Variation</label>
+                <select
+                  value={replacementVariationId}
+                  onChange={(event) => {
+                    setReplacementVariationId(event.target.value);
+                    setReplaceError('');
+                  }}
+                  className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm focus:border-orange-500 focus:outline-none focus:ring-2 focus:ring-orange-500"
+                >
+                  <option value="">Select variation</option>
+                  {activeReplacementVariations.map((variation) => (
+                    <option key={variation._id} value={variation._id}>
+                      {variation.name || Object.values(variation.optionValues || {}).join(' / ')} - ₦{Number(variation.price || 0).toLocaleString()}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+
+            {replacementProductId && (
+              <div className="mt-4 rounded-xl border border-orange-200 bg-orange-50 p-3 text-sm">
+                <div className="flex justify-between gap-3">
+                  <span className="text-gray-600">New order total</span>
+                  <span className="font-semibold">₦{replacementOrderTotal.toLocaleString()}</span>
+                </div>
+                <div className="mt-2 flex justify-between gap-3">
+                  <span className="text-gray-600">New remaining balance</span>
+                  <span className="font-semibold text-orange-700">₦{replacementRemainingBalance.toLocaleString()}</span>
+                </div>
+              </div>
+            )}
+
+            {replaceError && (
+              <div className="mt-3 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">
+                {replaceError}
+              </div>
+            )}
+
+            <div className="mt-5 flex gap-3">
+              <button
+                type="button"
+                onClick={handleReplaceOrderItem}
+                disabled={replaceLoading}
+                className="flex-1 rounded-full bg-orange-500 px-4 py-3 text-sm font-bold text-white transition hover:bg-orange-600 disabled:cursor-not-allowed disabled:bg-orange-300"
+              >
+                {replaceLoading ? 'Changing...' : 'Change Product'}
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowReplaceModal(false)}
+                className="rounded-full border border-gray-200 px-4 py-3 text-sm font-semibold text-gray-700 hover:bg-gray-50"
+              >
+                Cancel
+              </button>
+            </div>
           </div>
         </div>
       )}

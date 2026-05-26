@@ -10,7 +10,7 @@ const Footer = () => {
           <div>
             <h3 className="text-xl font-bold mb-4">SureBank Shop</h3>
             <p className="text-gray-400 text-sm">
-              Quality products with flexible payment options. Shop now, pay later with our installment plans.
+              Quality products with flexible payments. Start with any amount, pay as you like, and collect after full payment.
             </p>
           </div>
 
@@ -30,9 +30,9 @@ const Footer = () => {
             <h4 className="font-semibold mb-4">Payment Options</h4>
             <ul className="space-y-2 text-sm text-gray-400">
               <li>Outright Payment</li>
-              <li>Weekly Installments</li>
-              <li>Monthly Installments</li>
-              <li>Flexible Durations</li>
+              <li>Pay Small Small</li>
+              <li>Pay Any Amount</li>
+              <li>No Fixed Duration</li>
             </ul>
           </div>
 
@@ -41,7 +41,7 @@ const Footer = () => {
             <h4 className="font-semibold mb-4">Contact Us</h4>
             <ul className="space-y-2 text-sm text-gray-400">
               <li>Email: support@surebank.com</li>
-              <li>Phone: +234 XXX XXX XXXX</li>
+              <li>Phone: +234 803 131 3024</li>
             </ul>
           </div>
         </div>

@@ -389,13 +389,6 @@ const Cart = () => {
             </span>
           </div>
 
-          {/* Promo Badge */}
-          <div className="text-center mb-4">
-            <span className="inline-block px-4 py-1 bg-white border border-orange-300 text-orange-500 text-xs rounded-full">
-              Free delivery on all orders!
-            </span>
-          </div>
-
           {/* Start Payment Button */}
           <button
             onClick={handleStartPayment}
@@ -504,7 +497,7 @@ const Cart = () => {
             {/* Modal Header */}
             <div className="sticky top-0 bg-white flex items-center justify-between p-4 border-b">
               <h3 className="text-lg font-semibold text-gray-900">
-                {!paymentType ? 'Choose Payment Option' : paymentType === 'installment' ? 'Plan your installments' : 'Complete your purchase'}
+                {!paymentType ? 'Choose Payment Option' : paymentType === 'installment' ? 'Pay as you like' : 'Complete your purchase'}
               </h3>
               <button
                 onClick={() => { setShowPaymentModal(false); setPaymentType(''); }}
@@ -543,7 +536,7 @@ const Cart = () => {
                       </div>
                       <div>
                         <p className="font-semibold text-gray-900">Pay Small Small</p>
-                        <p className="text-sm text-gray-500">Split into daily, weekly, or monthly payments</p>
+                        <p className="text-sm text-gray-500">Pay any amount whenever you like. No fixed duration.</p>
                       </div>
                     </div>
                   </button>
@@ -600,6 +593,9 @@ const Cart = () => {
                   />
                   <p className="text-xs text-gray-500 mt-2">
                     Remaining after this payment: ₦{Math.max(0, Number(totalAmount || 0) - Number(firstPaymentAmount || 0)).toLocaleString()}
+                  </p>
+                  <p className="text-xs text-gray-500 mt-1">
+                    Continue paying any amount from My Orders. Pickup or delivery is available after full payment.
                   </p>
                 </div>
               )}
@@ -772,7 +768,7 @@ const Cart = () => {
                   )}
 
                   <div className="mb-4">
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Email Address <span className="text-gray-400 font-normal">(optional)</span></label>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Email Address</label>
                     <input
                       type="email"
                       value={customerEmail}
@@ -809,7 +805,7 @@ const Cart = () => {
                           Processing...
                         </span>
                       ) : (
-                        'Start your installments'
+                        'Start pay small small'
                       )}
                     </button>
                   )}
@@ -939,7 +935,7 @@ const Cart = () => {
                 <h4 className="font-semibold text-gray-900 mb-1">1. Payment Terms</h4>
                 <p>
                   {paymentType === 'installment'
-                    ? 'By selecting installment payment, you agree to make an initial payment now and continue paying any amount until the total is paid.'
+                    ? 'By selecting installment payment, you agree to make an initial payment now and continue paying any amount whenever you like until the total is paid. There is no fixed duration or payment boundary.'
                     : 'By selecting outright payment, you agree to pay the full amount immediately to complete your purchase.'
                   }
                 </p>
@@ -957,14 +953,14 @@ const Cart = () => {
                 <h4 className="font-semibold text-gray-900 mb-1">3. Delivery</h4>
                 <p>
                   {paymentType === 'installment'
-                    ? 'Products are delivered within 2-14 days after final payment. Pickup orders will be notified when ready.'
+                    ? 'Products are available for pickup or delivery after final payment. Pickup orders will be notified when ready.'
                     : 'Products are delivered within 2-7 business days after payment confirmation. Pickup orders will be notified when ready.'
                   }
                 </p>
               </div>
               <div>
-                <h4 className="font-semibold text-gray-900 mb-1">4. Cancellation & Refunds</h4>
-                <p>Orders may be cancelled before delivery. Refunds are processed minus a 5% processing fee.</p>
+                <h4 className="font-semibold text-gray-900 mb-1">4. Product Payment Policy</h4>
+                <p>All transactions on this package are only for products or properties and are not to be withdrawn as cash. You can change the product you're paying for in our pay small small from the varieties of our products to any other product as your need arises.</p>
               </div>
             </div>
             <div className="p-4 border-t">

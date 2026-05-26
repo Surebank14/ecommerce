@@ -71,31 +71,21 @@ const ProductDetail = () => {
   const pickupLocations = [
     {
       id: 1,
-      name: 'SureBank Headquarters',
-      address: '82 Ijesha Road, Surulere, Lagos, Nigeria',
-      phone: '+2347074542997',
-      area: 'Ijesha Surulere Lagos'
+      name: 'Mushin',
+      address: 'No 58/47 Ojekunle street by Bello junction, Papa Ajao, Mushin, Lagos',
+      area: 'Papa Ajao Mushin Lagos'
     },
     {
       id: 2,
-      name: 'SureBank Ikeja Branch',
-      address: '15 Allen Avenue, Ikeja, Lagos, Nigeria',
-      phone: '+2348012345678',
-      area: 'Allen Ikeja Lagos'
+      name: 'Oshodi',
+      address: 'Shop No 44E resettlement Complex by Post office, Oshodi Rd, Oshodi',
+      area: 'Oshodi Lagos'
     },
     {
       id: 3,
-      name: 'SureBank Victoria Island',
-      address: '25 Adeola Odeku Street, Victoria Island, Lagos',
-      phone: '+2348023456789',
-      area: 'VI Lagos'
-    },
-    {
-      id: 4,
-      name: 'SureBank Lekki Branch',
-      address: '10 Admiralty Way, Lekki Phase 1, Lagos',
-      phone: '+2348034567890',
-      area: 'Lekki Lagos'
+      name: 'Lagos Island',
+      address: 'Trendy Mall besides Mandilas building, Broad Street, Lagos Island',
+      area: 'Lagos Island'
     }
   ];
 
@@ -724,12 +714,6 @@ const ProductDetail = () => {
           <div className="mt-4">
             <div className="flex justify-between items-center mb-3">
               <span className="text-sm font-medium text-gray-700">Delivery Address</span>
-              <button
-                onClick={() => setShowShippingInfo(true)}
-                className="text-xs text-orange-500 hover:text-orange-600"
-              >
-                About shipping fee
-              </button>
             </div>
 
             {/* Delivery Method Toggle */}
@@ -918,7 +902,6 @@ const ProductDetail = () => {
                       <div>
                         <p className="text-sm font-medium text-gray-900">{location.name}</p>
                         <p className="text-xs text-gray-600 mt-1">{location.address}</p>
-                        <p className="text-xs text-gray-500 mt-1">{location.phone}</p>
                       </div>
                       {selectedPickupLocation?.id === location.id && (
                         <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-orange-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -972,14 +955,6 @@ const ProductDetail = () => {
           {/* Payment Summary - Shows when terms are accepted */}
           {buyNowTermsAccepted && deliveryMethod && (
             <div className="mt-4">
-              <p className="text-center text-sm text-gray-700 font-medium">
-                {deliveryMethod === 'pickup' ? (
-                  <>Pickup is <span className="font-bold text-green-600">FREE</span>. No delivery fee.</>
-                ) : (
-                  <>Total delivery fee is <span className="font-bold">₦0.00</span>. Free delivery!</>
-                )}
-              </p>
-
               {/* Payment Plan Summary Banner */}
               <div className="mt-4 bg-gray-100 rounded-xl p-3">
                 <div className="flex items-center justify-between gap-2 flex-wrap">
@@ -998,7 +973,7 @@ const ProductDetail = () => {
               {/* Email Input for Payment Receipt */}
               <div className="mt-4">
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Email Address <span className="text-gray-400 font-normal">(optional)</span>
+                  Email Address
                 </label>
                 <input
                   type="email"
@@ -1065,7 +1040,7 @@ const ProductDetail = () => {
       {showPlanSetup && (
         <div className="mx-auto mt-4 max-w-xs sm:max-w-sm md:max-w-md bg-white rounded-xl p-4 shadow-sm">
           <h2 className="text-base font-semibold text-gray-900">Pay Small Small</h2>
-          <p className="text-sm text-gray-500 mt-1">Enter the amount you want to pay now. You can add more money anytime from My Orders until the product is fully paid.</p>
+          <p className="text-sm text-gray-500 mt-1">Enter the amount you want to pay now. You can add more money anytime from My Orders. There is no fixed duration or payment boundary, and your product will be available for pickup or delivery when full payment is complete.</p>
 
           <div className="mt-4 rounded-lg border border-orange-200 bg-orange-50 p-3">
             <div className="flex justify-between text-sm">
@@ -1090,12 +1065,6 @@ const ProductDetail = () => {
               <div className="mt-4 pt-4 border-t border-orange-200">
                 <div className="flex justify-between items-start">
                   <span className="text-sm font-medium text-gray-700">Delivery Address</span>
-                  <button
-                    onClick={() => setShowShippingInfo(true)}
-                    className="text-xs text-orange-500 hover:text-orange-600"
-                  >
-                    About shipping fee.
-                  </button>
                 </div>
 
                 {!deliveryAddress ? (
@@ -1178,13 +1147,6 @@ const ProductDetail = () => {
           {/* Payment Summary Section - Shows when terms are accepted */}
           {Number(firstPaymentAmount) > 0 && deliveryAddress && termsAccepted && (
             <div className="mt-4">
-              <p className="text-center text-sm text-gray-700 font-medium">
-                Total delivery fee is <span className="font-bold">₦0.00</span>.
-              </p>
-              <p className="text-center text-sm text-gray-600 mt-1">
-                Free delivery on all orders!
-              </p>
-
               <div className="mt-4 bg-gray-100 rounded-xl p-3">
                 <div className="flex items-center justify-between gap-2 flex-wrap">
                   <span className="px-4 py-2 bg-white rounded-full text-sm text-gray-700 border border-gray-200">
@@ -1202,7 +1164,7 @@ const ProductDetail = () => {
               {/* Email Input for Payment Receipt */}
               <div className="mt-4">
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Email Address <span className="text-gray-400 font-normal">(optional)</span>
+                  Email Address
                 </label>
                 <input
                   type="email"
@@ -1240,7 +1202,7 @@ const ProductDetail = () => {
                     Processing Payment...
                   </span>
                 ) : (
-                  'Start your installments.'
+                  'Start pay small small'
                 )}
               </button>
             </div>
@@ -1301,8 +1263,8 @@ const ProductDetail = () => {
                     </svg>
                   </div>
                   <div>
-                    <p className="text-sm font-medium text-gray-900">Free Delivery</p>
-                    <p className="text-xs text-gray-500">Enjoy free shipping on all orders</p>
+                    <p className="text-sm font-medium text-gray-900">Delivery</p>
+                    <p className="text-xs text-gray-500">Products are available for delivery after payment is complete</p>
                   </div>
                 </div>
                 <div className="flex items-start gap-3">
@@ -1448,11 +1410,11 @@ const ProductDetail = () => {
               <div className="space-y-4 text-sm text-gray-600">
                 <div>
                   <h4 className="font-semibold text-gray-900 mb-2">1. Payment Terms</h4>
-                  <p>
-                    {showBuyNowSetup
-                      ? 'By selecting the "Buy Now, Once!" option, you agree to make a one-time full payment for your order. Payment is processed securely through Paystack.'
-                      : 'By selecting the "Pay Small Small" option, you agree to make an initial payment now and continue paying any amount until the total product price is fully paid.'}
-                  </p>
+                <p>
+                  {showBuyNowSetup
+                    ? 'By selecting the "Buy Now, Once!" option, you agree to make a one-time full payment for your order. Payment is processed securely through Paystack.'
+                      : 'By selecting the "Pay Small Small" option, you agree to make an initial payment now and continue paying any amount whenever you like until the total product price is fully paid. There is no fixed duration or payment boundary.'}
+                </p>
                 </div>
                 <div>
                   <h4 className="font-semibold text-gray-900 mb-2">2. Payment Processing</h4>
@@ -1465,26 +1427,26 @@ const ProductDetail = () => {
                 <div>
                   <h4 className="font-semibold text-gray-900 mb-2">3. Product Delivery</h4>
                   <p>
-                    {showBuyNowSetup
+                  {showBuyNowSetup
                       ? 'Products will be delivered within 2-14 business days after payment confirmation. For pickup orders, you will be notified when your item is ready for collection.'
-                      : 'Products will be delivered within 2-5 business days after your final payment is received. Delivery is free for all orders.'}
-                  </p>
+                      : 'Products will be available for pickup or delivery after your final payment is received.'}
+                </p>
                 </div>
                 <div>
                   <h4 className="font-semibold text-gray-900 mb-2">4. Delivery & Pickup</h4>
                   <p>
-                    {showBuyNowSetup
+                  {showBuyNowSetup
                       ? 'Home delivery is available nationwide. For pickup, visit your selected SureBank location with a valid ID and order confirmation.'
-                      : 'If a payment is missed, you will receive reminders via SMS and email. Consistent late payments may affect your eligibility for future installment plans.'}
-                  </p>
+                      : 'There are no missed-payment penalties or fixed payment dates. Continue paying as you like until the product is fully paid.'}
+                </p>
                 </div>
                 <div>
-                  <h4 className="font-semibold text-gray-900 mb-2">5. Cancellation Policy</h4>
-                  <p>You may cancel your order before the product is shipped/picked up. Any payments made will be refunded minus a 5% processing fee.</p>
+                  <h4 className="font-semibold text-gray-900 mb-2">5. Product Payment Policy</h4>
+                  <p>All transactions on this package are only for products or properties and are not to be withdrawn as cash. You can change the product you're paying for in our pay small small from the varieties of our products to any other product as your need arises.</p>
                 </div>
                 <div>
                   <h4 className="font-semibold text-gray-900 mb-2">6. Product Returns</h4>
-                  <p>Products can be returned within 7 days of delivery/pickup if they are defective or damaged. Items must be in their original packaging.</p>
+                  <p>Products can be returned within 24 hours of delivery only if they are defective or damaged and were delivered by SureBank dispatch. Returns are not honored for pickup orders or when the customer uses their own dispatch. Items must be in their original packaging.</p>
                 </div>
                 <div>
                   <h4 className="font-semibold text-gray-900 mb-2">7. Account Responsibility</h4>
