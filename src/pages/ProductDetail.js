@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useRef, useCallback } from 'react';
+import axios from 'axios';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
 import { fetchProductByIdRequest, clearProduct } from '../redux/slices/productSlice';
@@ -8,6 +9,8 @@ import { initializePaymentRequest, clearPaymentState } from '../redux/slices/ord
 import { fetchWalletRequest } from '../redux/slices/walletSlice';
 import { getStates, getLGAs, getTowns } from '../data/nigerianLocations';
 import { handleImageFallback, PRODUCT_FALLBACK_IMAGE, resolveImageUrl } from '../utils/image';
+import { API_URL } from '../utils/api';
+import ProductCard from '../components/ProductCard';
 
 const ProductDetail = () => {
   const dispatch = useDispatch();
@@ -54,6 +57,8 @@ const ProductDetail = () => {
   const [paymentErrorMessage, setPaymentErrorMessage] = useState('');
   const [showPaymentSourceModal, setShowPaymentSourceModal] = useState(false);
   const [pendingPaymentData, setPendingPaymentData] = useState(null);
+  const [relatedProducts, setRelatedProducts] = useState([]);
+  const [relatedLoading, setRelatedLoading] = useState(false);
 
   // Buy Now Once flow states
   const [showBuyNowSetup, setShowBuyNowSetup] = useState(false);
@@ -167,6 +172,40 @@ const ProductDetail = () => {
       dispatch(clearProduct());
     };
   }, [dispatch, id]);
+
+  useEffect(() => {
+    const categoryId = product?.categoryId?._id || product?.categoryId;
+
+    if (!product?._id || !categoryId) {
+      setRelatedProducts([]);
+      return;
+    }
+
+    let cancelled = false;
+    setRelatedLoading(true);
+
+    axios.get(`${API_URL}/api/products`, { params: { categoryId } })
+      .then((response) => {
+        if (cancelled) return;
+
+        const products = Array.isArray(response.data) ? response.data : [];
+        setRelatedProducts(products.filter((item) => item._id !== product._id).slice(0, 8));
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setRelatedProducts([]);
+        }
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setRelatedLoading(false);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [product]);
 
 
   const handleAddToCart = () => {
@@ -499,25 +538,25 @@ const ProductDetail = () => {
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header with back arrow and title */}
-      <div className="bg-white px-4 py-4 flex items-center sticky top-0 z-10 shadow-sm">
+      <div className="bg-white px-3 py-2 md:px-4 md:py-4 flex items-center md:sticky md:top-0 z-10 shadow-sm">
         <button
           onClick={() => navigate(-1)}
-          className="text-orange-500 hover:text-orange-600 mr-4"
+          className="text-orange-500 hover:text-orange-600 mr-3 md:mr-4"
         >
-          <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 md:h-6 md:w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
           </svg>
         </button>
-        <h1 className="flex-1 text-center text-lg font-semibold truncate pr-10">
+        <h1 className="flex-1 text-center text-sm md:text-lg font-semibold truncate pr-8 md:pr-10">
           {product.name}
         </h1>
       </div>
 
       {/* Product Image Carousel */}
-      <div className="bg-white py-4">
-        <div className="mx-auto max-w-xs sm:max-w-sm md:max-w-md">
-          <div className="relative bg-gray-50 rounded-xl overflow-hidden mx-4">
-            <div className="aspect-square relative flex items-center justify-center p-4">
+      <div className="bg-white py-2 md:py-4">
+        <div className="mx-auto max-w-[240px] sm:max-w-sm md:max-w-md">
+          <div className="relative bg-gray-50 rounded-xl overflow-hidden mx-3 md:mx-4">
+            <div className="aspect-[4/3] md:aspect-square relative flex items-center justify-center p-2 md:p-4">
               <img
                 src={images[selectedImage]}
                 alt={product.name}
@@ -555,13 +594,13 @@ const ProductDetail = () => {
       </div>
 
       {/* Product Overview Card */}
-      <div className="mx-auto mt-4 max-w-xs sm:max-w-sm md:max-w-md bg-white rounded-xl p-4 shadow-sm">
-        <h2 className="text-base font-semibold text-gray-900">Product overview</h2>
-        <p className="text-sm text-gray-500 mt-1">Review item details and choose how you want to pay.</p>
+      <div className="mx-auto mt-2 md:mt-4 max-w-xs sm:max-w-sm md:max-w-md bg-white rounded-xl p-3 md:p-4 shadow-sm">
+        <h2 className="text-sm md:text-base font-semibold text-gray-900">Product overview</h2>
+        <p className="hidden sm:block text-sm text-gray-500 mt-1">Review item details and choose how you want to pay.</p>
 
-        <div className="flex items-center justify-between mt-4">
+        <div className="flex items-center justify-between mt-2 md:mt-4">
           <div className="flex items-center">
-            <span className="text-orange-500 font-medium">{getCategoryName(product.categoryId)}</span>
+            <span className="text-sm md:text-base text-orange-500 font-medium">{getCategoryName(product.categoryId)}</span>
             <span className="text-gray-400 ml-1">{getCategoryName(product.categoryId) !== 'Products' && ' Products'}</span>
             <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-gray-400 ml-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -571,7 +610,7 @@ const ProductDetail = () => {
             <button
               onClick={handleAddToCart}
               disabled={cartLoading || (hasVariations && !selectedVariation)}
-              className="p-2 rounded-full border border-gray-200 hover:bg-gray-50 hover:border-orange-300 disabled:opacity-50 transition-colors"
+              className="p-2 rounded-full border border-orange-200 bg-orange-50 text-orange-600 hover:bg-orange-100 hover:border-orange-400 disabled:opacity-50 transition-colors"
               title="Add to cart"
             >
               {cartLoading ? (
@@ -580,33 +619,33 @@ const ProductDetail = () => {
                   <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                 </svg>
               ) : (
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-orange-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" />
                 </svg>
               )}
             </button>
-            <button className="p-2 rounded-full border border-gray-200 hover:bg-gray-50">
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <button className="p-2 rounded-full border border-orange-200 bg-orange-50 text-orange-600 hover:bg-orange-100 hover:border-orange-400 transition-colors">
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-orange-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
               </svg>
             </button>
-            <button onClick={handleShare} className="p-2 rounded-full border border-gray-200 hover:bg-gray-50">
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <button onClick={handleShare} className="p-2 rounded-full border border-orange-200 bg-orange-50 text-orange-600 hover:bg-orange-100 hover:border-orange-400 transition-colors">
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-orange-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
               </svg>
             </button>
           </div>
         </div>
 
-        <h3 className="text-base font-medium text-gray-900 mt-4">{product.name}</h3>
+        <h3 className="text-sm md:text-base font-medium text-gray-900 mt-2 md:mt-4">{product.name}</h3>
 
-        <p className="text-xl font-bold text-orange-500 mt-2">
+        <p className="text-lg md:text-xl font-bold text-orange-500 mt-1 md:mt-2">
           ₦{selectedPrice?.toLocaleString()}
         </p>
 
         {hasVariations && (
-          <div className="mt-4">
-            <p className="text-sm font-medium text-gray-700 mb-2">Choose variation</p>
+          <div className="mt-3 md:mt-4">
+            <p className="text-xs md:text-sm font-medium text-gray-700 mb-2">Choose variation</p>
             <div className="grid grid-cols-1 gap-2">
               {visibleVariations.map((variation) => {
                 const optionEntries = Object.entries(variation.optionValues || {});
@@ -620,7 +659,7 @@ const ProductDetail = () => {
                       setSelectedVariationId(variation._id);
                       setPaymentErrorMessage('');
                     }}
-                    className={`text-left rounded-lg border p-3 transition-colors ${
+                    className={`text-left rounded-lg border p-2 md:p-3 transition-colors ${
                       isSelected
                         ? 'border-orange-500 bg-orange-50'
                         : 'border-gray-200 hover:border-orange-300'
@@ -631,7 +670,7 @@ const ProductDetail = () => {
                         <img
                           src={resolveImageUrl(variation.image)}
                           alt={variation.name || product.name}
-                          className="h-14 w-14 flex-shrink-0 rounded-md border border-gray-200 object-cover"
+                          className="h-12 w-12 md:h-14 md:w-14 flex-shrink-0 rounded-md border border-gray-200 object-cover"
                           onError={handleImageFallback}
                         />
                       )}
@@ -667,13 +706,13 @@ const ProductDetail = () => {
           </div>
         )}
 
-        <div className="flex items-center gap-3 mt-3">
+        <div className="flex items-center gap-2 md:gap-3 mt-3">
           <button
             onClick={handleBuyNow}
-            className={`text-sm font-medium px-5 py-2 rounded-full transition-colors ${
+            className={`text-xs md:text-sm font-bold px-4 md:px-5 py-2 rounded-full text-white shadow-sm transition-colors ${
               showBuyNowSetup
-                ? 'bg-orange-500 text-white'
-                : 'border border-orange-500 text-orange-500 hover:bg-orange-50'
+                ? 'bg-orange-700'
+                : 'bg-orange-600 hover:bg-orange-700'
             }`}
           >
             Buy Now, Once!
@@ -683,10 +722,10 @@ const ProductDetail = () => {
               setShowPlanSetup(!showPlanSetup);
               if (showBuyNowSetup) setShowBuyNowSetup(false);
             }}
-            className={`text-sm font-medium px-5 py-2 rounded-full transition-colors ${
+            className={`text-xs md:text-sm font-bold px-4 md:px-5 py-2 rounded-full text-white shadow-sm transition-colors ${
               showPlanSetup
-                ? 'bg-orange-500 text-white'
-                : 'border border-orange-500 text-orange-500 hover:bg-orange-50'
+                ? 'bg-orange-700'
+                : 'bg-orange-600 hover:bg-orange-700'
             }`}
           >
             Pay Small Small
@@ -1228,15 +1267,38 @@ const ProductDetail = () => {
 
       {/* More Description Card */}
       {product.description && (
-        <div className="mx-auto mt-4 mb-6 max-w-xs sm:max-w-sm md:max-w-md bg-white rounded-xl p-4 shadow-sm">
-          <h2 className="text-base font-semibold text-gray-900">More description</h2>
+        <div className="mx-auto mt-2 md:mt-4 mb-6 max-w-xs sm:max-w-sm md:max-w-md bg-white rounded-xl p-3 md:p-4 shadow-sm">
+          <h2 className="text-sm md:text-base font-semibold text-gray-900">More description</h2>
 
-          <div className="mt-3 text-sm text-gray-600 space-y-1">
+          <div className="mt-2 md:mt-3 text-sm text-gray-600 space-y-1">
             {product.description.split('\n').map((line, index) => (
               <p key={index}>{line}</p>
             ))}
           </div>
         </div>
+      )}
+
+      {(relatedLoading || relatedProducts.length > 0) && (
+        <section className="mx-auto mt-2 mb-6 max-w-5xl px-4">
+          <div className="mb-3 flex items-end justify-between gap-3">
+            <div>
+              <h2 className="text-base font-semibold text-gray-900">Other products in this category</h2>
+              <p className="text-xs text-gray-500">You may also like these products.</p>
+            </div>
+          </div>
+
+          {relatedLoading ? (
+            <div className="flex justify-center rounded-xl bg-white py-8 shadow-sm">
+              <div className="h-8 w-8 animate-spin rounded-full border-b-2 border-orange-500"></div>
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
+              {relatedProducts.map((relatedProduct) => (
+                <ProductCard key={relatedProduct._id} product={relatedProduct} compact />
+              ))}
+            </div>
+          )}
+        </section>
       )}
 
       {/* Shipping Info Modal */}

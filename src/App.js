@@ -9,6 +9,7 @@ import Header from './components/Header';
 import Footer from './components/Footer';
 import PwaInstallPrompt from './components/PwaInstallPrompt';
 import WhatsAppSupport from './components/WhatsAppSupport';
+import MobileBottomNav from './components/MobileBottomNav';
 
 // Pages
 import Home from './pages/Home';
@@ -22,11 +23,13 @@ import OrderConfirmation from './pages/OrderConfirmation';
 import PaymentVerify from './pages/PaymentVerify';
 import Wallet from './pages/Wallet';
 import WalletPaymentVerify from './pages/WalletPaymentVerify';
+import Account from './pages/Account';
 
 // Layout wrapper component
 const Layout = ({ children }) => {
   const location = useLocation();
   const isPaymentPage = location.pathname.startsWith('/payment/');
+  const isProductDetailPage = /^\/product\/[^/]+/.test(location.pathname);
 
   // Only hide header/footer on payment verification page
   if (isPaymentPage) {
@@ -37,9 +40,10 @@ const Layout = ({ children }) => {
     <div className="min-h-screen flex flex-col">
       <PwaInstallPrompt />
       <Header />
-      <main className="flex-1 bg-gray-50">{children}</main>
+      <main className="flex-1 bg-gray-50 pb-20 md:pb-0">{children}</main>
       <WhatsAppSupport />
-      <Footer />
+      <MobileBottomNav />
+      {!isProductDetailPage && <Footer />}
     </div>
   );
 };
@@ -64,6 +68,7 @@ function AppRoutes() {
         <Route path="/register" element={<Register />} />
         <Route path="/orders" element={<Orders />} />
         <Route path="/wallet" element={<Wallet />} />
+        <Route path="/account" element={<Account />} />
         <Route path="/order-confirmation/:orderNumber" element={<OrderConfirmation />} />
         <Route path="/payment/verify" element={<PaymentVerify />} />
         <Route path="/payment/wallet/verify" element={<WalletPaymentVerify />} />

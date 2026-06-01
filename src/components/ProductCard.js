@@ -53,7 +53,7 @@ const ProductCard = ({ product, compact = false }) => {
             className={`${compact ? 'px-1.5 py-0.5 text-[9px]' : 'px-2 py-0.5 text-[10px]'} rounded font-medium ${
               product.stock === 0
                 ? 'bg-gray-200 text-gray-500 cursor-not-allowed'
-                : 'bg-primary-600 text-white hover:bg-primary-700'
+                : 'bg-orange-500 text-white hover:bg-orange-600'
             }`}
           >
             {product.stock === 0 ? 'Out' : 'Add'}

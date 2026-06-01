@@ -11,7 +11,7 @@ const WhatsAppSupport = () => {
       target="_blank"
       rel="noopener noreferrer"
       aria-label="Chat with customer support on WhatsApp"
-      className="fixed bottom-5 right-4 z-50 inline-flex h-14 w-14 items-center justify-center rounded-full bg-[#25D366] text-white shadow-lg transition hover:bg-[#1ebe5d] hover:shadow-xl focus:outline-none focus:ring-4 focus:ring-green-200 sm:w-auto sm:gap-2 sm:px-4"
+      className="fixed bottom-24 right-4 z-50 inline-flex h-14 w-14 items-center justify-center rounded-full bg-[#25D366] text-white shadow-lg transition hover:bg-[#1ebe5d] hover:shadow-xl focus:outline-none focus:ring-4 focus:ring-green-200 sm:bottom-5 sm:w-auto sm:gap-2 sm:px-4"
     >
       <svg
         xmlns="http://www.w3.org/2000/svg"
