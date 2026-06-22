@@ -349,7 +349,7 @@ const OrderConfirmation = () => {
         <div className="bg-white rounded-lg shadow p-4 sm:p-6 mb-6">
           <div className="flex flex-col gap-1">
             <h2 className="text-lg font-semibold">How was your experience?</h2>
-            <p className="text-sm text-gray-500">This is optional and helps us improve the Surebank shop.</p>
+            <p className="text-sm text-gray-500">This is optional and helps us improve Sure-Bank Stores.</p>
           </div>
           <div className="mt-3 flex gap-1">
             {[1, 2, 3, 4, 5].map((rating) => (

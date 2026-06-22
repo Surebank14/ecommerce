@@ -29,8 +29,8 @@ const Header = () => {
         <div className="flex justify-between items-center gap-3 h-16">
           {/* Logo */}
           <Link to="/" className="flex items-center min-w-0">
-            <span className="text-xl sm:text-2xl font-bold text-primary-600 leading-none">SureBank</span>
-            <span className="ml-1 text-xs sm:text-sm text-gray-500">Shop</span>
+            <span className="text-xl sm:text-2xl font-bold text-primary-600 leading-none">Sure-Bank</span>
+            <span className="ml-1 text-xs sm:text-sm text-gray-500">Stores</span>
           </Link>
 
           {/* Desktop Navigation */}

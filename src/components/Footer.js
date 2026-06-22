@@ -8,7 +8,7 @@ const Footer = () => {
         <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
           {/* Brand */}
           <div>
-            <h3 className="text-xl font-bold mb-4">SureBank Shop</h3>
+            <h3 className="text-xl font-bold mb-4">Sure-Bank Stores</h3>
             <p className="text-gray-400 text-sm">
               Quality products with flexible payments. Start with any amount, pay as you like, and collect after full payment.
             </p>
@@ -22,6 +22,7 @@ const Footer = () => {
               <li><Link to="/products" className="hover:text-white">Products</Link></li>
               <li><Link to="/cart" className="hover:text-white">Cart</Link></li>
               <li><Link to="/orders" className="hover:text-white">My Orders</Link></li>
+              <li><Link to="/terms-and-conditions" className="hover:text-white">Terms and Conditions</Link></li>
             </ul>
           </div>
 
@@ -47,7 +48,7 @@ const Footer = () => {
         </div>
 
         <div className="border-t border-gray-700 mt-8 pt-8 text-center text-sm text-gray-400">
-          <p>&copy; {new Date().getFullYear()} SureBank Shop. All rights reserved.</p>
+          <p>&copy; {new Date().getFullYear()} Sure-Bank Stores. All rights reserved.</p>
         </div>
       </div>
     </footer>

@@ -24,6 +24,7 @@ import PaymentVerify from './pages/PaymentVerify';
 import Wallet from './pages/Wallet';
 import WalletPaymentVerify from './pages/WalletPaymentVerify';
 import Account from './pages/Account';
+import TermsAndConditions from './pages/TermsAndConditions';
 
 // Layout wrapper component
 const Layout = ({ children }) => {
@@ -69,6 +70,7 @@ function AppRoutes() {
         <Route path="/orders" element={<Orders />} />
         <Route path="/wallet" element={<Wallet />} />
         <Route path="/account" element={<Account />} />
+        <Route path="/terms-and-conditions" element={<TermsAndConditions />} />
         <Route path="/order-confirmation/:orderNumber" element={<OrderConfirmation />} />
         <Route path="/payment/verify" element={<PaymentVerify />} />
         <Route path="/payment/wallet/verify" element={<WalletPaymentVerify />} />

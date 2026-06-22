@@ -58,7 +58,7 @@ const PwaInstallPrompt = () => {
     <div className="border-b border-blue-100 bg-gradient-to-r from-blue-600 to-sky-500 text-white">
       <div className="mx-auto flex max-w-7xl items-center justify-between gap-3 px-4 py-3 sm:px-6 lg:px-8">
         <div className="min-w-0">
-          <p className="text-sm font-semibold">Install SureBank Shop</p>
+          <p className="text-sm font-semibold">Install Sure-Bank Stores</p>
           <p className="text-xs text-blue-50">
             Add the storefront to your phone or desktop for faster access.
           </p>
