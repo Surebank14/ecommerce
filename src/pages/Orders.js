@@ -27,6 +27,7 @@ const Orders = () => {
       processing: 'bg-gray-200 text-gray-700',
       shipped: 'bg-gray-300 text-gray-800',
       delivered: 'bg-green-200 text-green-900',
+      completed: 'bg-emerald-200 text-emerald-900',
       cancelled: 'bg-red-100 text-red-800',
     };
     return colors[status] || 'bg-gray-100 text-gray-800';
@@ -39,6 +40,12 @@ const Orders = () => {
       .map(([name, value]) => `${name}: ${value}`)
       .join(" • ");
   };
+
+  const hasOutOfMarketItems = (order) =>
+    order.items?.some((item) => item.requiresReplacement);
+
+  const isItemDelivered = (item) =>
+    ['delivered', 'completed'].includes(item?.fulfillmentStatus);
 
   if (loading) {
     return (
@@ -89,7 +96,7 @@ const Orders = () => {
                         : 'text-primary-600 hover:text-primary-700 text-sm font-medium'
                     }
                   >
-                    {order.paymentType === 'installment' ? 'make payment' : 'View Details'}
+                    {hasOutOfMarketItems(order) ? 'replace product' : order.paymentType === 'installment' ? 'make payment' : 'View Details'}
                   </Link>
                 </div>
               </div>
@@ -102,6 +109,16 @@ const Orders = () => {
                         <span className="text-gray-600">{item.productName}</span>
                         <span className="text-gray-400 ml-1">x{item.quantity}</span>
                       </div>
+                      {item.requiresReplacement && (
+                        <span className="mt-1 inline-flex rounded-full bg-red-100 px-2 py-0.5 text-xs font-semibold text-red-700">
+                          out of market, replace with another product
+                        </span>
+                      )}
+                      {isItemDelivered(item) && (
+                        <span className="mt-1 inline-flex rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-semibold text-emerald-700">
+                          delivered
+                        </span>
+                      )}
                       {(item.variationName || getSelectedOptionsText(item)) && (
                         <div className="mt-1 text-xs text-gray-500">
                           {item.variationName && <span>{item.variationName}</span>}

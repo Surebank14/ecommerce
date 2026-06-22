@@ -381,12 +381,6 @@ const Cart = () => {
             <span className="px-3 py-1 bg-white rounded-full text-xs text-gray-700 border border-gray-200">
               {totalItems} total item{totalItems > 1 ? 's' : ''}
             </span>
-            <span className="px-3 py-1 bg-white rounded-full text-xs text-gray-700 border border-gray-200">
-              Monthly: 2 to 12 months
-            </span>
-            <span className="px-3 py-1 bg-white rounded-full text-xs text-gray-700 border border-gray-200">
-              Weekly: 4 to 48 weeks
-            </span>
           </div>
 
           {/* Start Payment Button */}
@@ -961,6 +955,14 @@ const Cart = () => {
               <div>
                 <h4 className="font-semibold text-gray-900 mb-1">4. Product Payment Policy</h4>
                 <p>All transactions on this package are only for products or properties and are not to be withdrawn as cash. You can change the product you're paying for in our pay small small from the varieties of our products to any other product as your need arises.</p>
+              </div>
+              <div>
+                <h4 className="font-semibold text-gray-900 mb-1">5. Price Changes</h4>
+                <p>Product prices may change based on changes in market price. If a product price changes before your order is fully paid, the unpaid order balance may be adjusted to reflect the current product price.</p>
+              </div>
+              <div>
+                <h4 className="font-semibold text-gray-900 mb-1">6. Out of Market Products</h4>
+                <p>If a product becomes out of market before it is supplied, delivered, or picked up, you are required to replace it with another available product from SureBank stores. Payment may continue, but the out-of-market product cannot be supplied.</p>
               </div>
             </div>
             <div className="p-4 border-t">

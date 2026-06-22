@@ -58,6 +58,7 @@ const OrderConfirmation = () => {
       pending: 'bg-yellow-100 text-yellow-800',
       paid: 'bg-green-100 text-green-800',
       partially_paid: 'bg-orange-100 text-orange-800',
+      completed: 'bg-emerald-200 text-emerald-900',
     };
     return colors[status] || 'bg-gray-100 text-gray-800';
   };
@@ -99,6 +100,7 @@ const OrderConfirmation = () => {
     : 0;
   const walletBalance = Number(account?.availableBalance || 0);
   const remainingBalance = Number(order.installmentPlan?.remainingBalance || 0);
+  const hasOutOfMarketItems = order.items?.some((item) => item.requiresReplacement);
   const canPayoffFromWallet = order.paymentType === 'installment'
     && remainingBalance > 0
     && walletBalance >= remainingBalance
@@ -170,9 +172,15 @@ const OrderConfirmation = () => {
   const canReviewExperience = !isBackofficeSBAccount && ['paid', 'partial'].includes(order.paymentStatus);
   const canReplaceItems = order.paymentType === 'installment'
     && !isBackofficeSBAccount
-    && order.paymentStatus !== 'paid'
-    && remainingBalance > 0
-    && !['delivered', 'shipped', 'cancelled'].includes(order.status);
+    && (hasOutOfMarketItems || (order.paymentStatus !== 'paid' && remainingBalance > 0))
+    && !['delivered', 'completed', 'shipped', 'cancelled'].includes(order.status);
+  const isItemDelivered = (item) =>
+    ['delivered', 'completed'].includes(item?.fulfillmentStatus);
+  const canReplaceItem = (item) =>
+    canReplaceItems && (
+      item.requiresReplacement ||
+      (order.paymentStatus !== 'paid' && remainingBalance > 0)
+    );
   const selectedReplacementProduct = products.find((product) => product._id === replacementProductId);
   const activeReplacementVariations = selectedReplacementProduct?.hasVariations && Array.isArray(selectedReplacementProduct.variations)
     ? selectedReplacementProduct.variations.filter((variation) => variation.isActive !== false)
@@ -287,11 +295,26 @@ const OrderConfirmation = () => {
             You can change products while this pay-small-small order is still ongoing. The remaining balance will be recalculated after the change.
           </p>
         )}
+        {hasOutOfMarketItems && (
+          <p className="mb-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm font-medium text-red-700">
+            One or more products in this order are out of market. Replace them with another product from SureBank stores before supply, delivery, or pickup.
+          </p>
+        )}
         <div className="space-y-4">
           {order.items?.map((item, index) => (
             <div key={index} className="flex flex-col gap-2 sm:flex-row sm:justify-between py-2 border-b last:border-b-0">
               <div>
                 <p className="font-medium">{item.productName}</p>
+                {item.requiresReplacement && (
+                  <span className="mt-1 inline-flex rounded-full bg-red-100 px-2 py-0.5 text-xs font-semibold text-red-700">
+                    out of market, replace with another product
+                  </span>
+                )}
+                {isItemDelivered(item) && (
+                  <span className="mt-1 inline-flex rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-semibold text-emerald-700">
+                    delivered
+                  </span>
+                )}
                 {(item.variationName || (item.selectedOptions && Object.keys(item.selectedOptions).length > 0)) && (
                   <p className="text-xs text-gray-500">
                     {[item.variationName, ...Object.entries(item.selectedOptions || {}).map(([name, value]) => `${name}: ${value}`)]
@@ -300,13 +323,13 @@ const OrderConfirmation = () => {
                   </p>
                 )}
                 <p className="text-sm text-gray-500">Qty: {item.quantity}</p>
-                {canReplaceItems && (
+                {canReplaceItem(item) && (
                   <button
                     type="button"
                     onClick={() => openReplaceModal(item)}
                     className="mt-3 inline-flex items-center rounded-full bg-orange-500 px-4 py-2 text-sm font-bold text-white shadow-md shadow-orange-100 transition hover:bg-orange-600 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2"
                   >
-                    Change product
+                    {item.requiresReplacement ? 'Replace product' : 'Change product'}
                   </button>
                 )}
               </div>
@@ -405,6 +428,12 @@ const OrderConfirmation = () => {
           {orderDepositError && (
             <div className="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
               {orderDepositError}
+            </div>
+          )}
+
+          {hasOutOfMarketItems && (
+            <div className="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+              Payment can continue, but this order cannot be supplied until the out-of-market product is replaced.
             </div>
           )}
 

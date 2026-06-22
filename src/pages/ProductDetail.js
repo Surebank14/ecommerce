@@ -1511,11 +1511,19 @@ const ProductDetail = () => {
                   <p>Products can be returned within 24 hours of delivery only if they are defective or damaged and were delivered by SureBank dispatch. Returns are not honored for pickup orders or when the customer uses their own dispatch. Items must be in their original packaging.</p>
                 </div>
                 <div>
-                  <h4 className="font-semibold text-gray-900 mb-2">7. Account Responsibility</h4>
+                  <h4 className="font-semibold text-gray-900 mb-2">7. Price Changes</h4>
+                  <p>Product prices may change based on changes in market price. If a product price changes before your order is fully paid, the unpaid order balance may be adjusted to reflect the current product price.</p>
+                </div>
+                <div>
+                  <h4 className="font-semibold text-gray-900 mb-2">8. Out of Market Products</h4>
+                  <p>If a product becomes out of market before it is supplied, delivered, or picked up, you are required to replace it with another available product from SureBank stores. Payment may continue, but the out-of-market product cannot be supplied.</p>
+                </div>
+                <div>
+                  <h4 className="font-semibold text-gray-900 mb-2">9. Account Responsibility</h4>
                   <p>You are responsible for providing accurate delivery information and ensuring someone is available to receive the delivery at the specified address.</p>
                 </div>
                 <div>
-                  <h4 className="font-semibold text-gray-900 mb-2">8. Changes to Terms</h4>
+                  <h4 className="font-semibold text-gray-900 mb-2">10. Changes to Terms</h4>
                   <p>SureBank reserves the right to modify these terms at any time. Continued use of the service constitutes acceptance of modified terms.</p>
                 </div>
               </div>
