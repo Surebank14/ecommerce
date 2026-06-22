@@ -4,8 +4,9 @@ export function register() {
   }
 
   window.addEventListener('load', () => {
+    const publicUrl = process.env.PUBLIC_URL || '';
     navigator.serviceWorker
-      .register('/service-worker.js')
+      .register(`${publicUrl}/service-worker.js`)
       .catch((error) => {
         console.error('Service worker registration failed:', error);
       });
