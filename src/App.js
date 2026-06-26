@@ -25,6 +25,8 @@ import Wallet from './pages/Wallet';
 import WalletPaymentVerify from './pages/WalletPaymentVerify';
 import Account from './pages/Account';
 import TermsAndConditions from './pages/TermsAndConditions';
+import ForgotPassword from './pages/ForgotPassword';
+import ChangePassword from './pages/ChangePassword';
 
 // Layout wrapper component
 const Layout = ({ children }) => {
@@ -66,6 +68,8 @@ function AppRoutes() {
         <Route path="/product/:id" element={<ProductDetail />} />
         <Route path="/cart" element={<Cart />} />
         <Route path="/login" element={<Login />} />
+        <Route path="/forgot-password" element={<ForgotPassword />} />
+        <Route path="/change-password" element={<ChangePassword />} />
         <Route path="/register" element={<Register />} />
         <Route path="/orders" element={<Orders />} />
         <Route path="/wallet" element={<Wallet />} />

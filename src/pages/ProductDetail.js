@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useRef, useCallback } from 'react';
 import axios from 'axios';
-import { useParams, useNavigate } from 'react-router-dom';
+import { Link, useParams, useNavigate } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
 import { fetchProductByIdRequest, clearProduct } from '../redux/slices/productSlice';
 import { addToCartRequest } from '../redux/slices/cartSlice';
@@ -16,7 +16,7 @@ const ProductDetail = () => {
   const dispatch = useDispatch();
   const navigate = useNavigate();
   const { id } = useParams();
-  const { product, loading, categories } = useSelector((state) => state.products);
+  const { product, productLoading, productLoaded, categories } = useSelector((state) => state.products);
   const { loading: cartLoading } = useSelector((state) => state.cart);
   const { isAuthenticated, customer, loading: authLoading, error: authError } = useSelector((state) => state.auth);
   const { paymentLoading, paymentError, paymentVerified } = useSelector((state) => state.orders);
@@ -506,7 +506,7 @@ const ProductDetail = () => {
     return () => clearInterval(interval);
   }, [product]);
 
-  if (loading) {
+  if (productLoading || !productLoaded) {
     return (
       <div className="flex justify-center items-center min-h-screen bg-gray-50">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-orange-500"></div>
@@ -514,7 +514,7 @@ const ProductDetail = () => {
     );
   }
 
-  if (!product) {
+  if (productLoaded && !product) {
     return (
       <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center px-4">
         <h2 className="text-xl font-semibold mb-4">Product not found</h2>
@@ -1730,10 +1730,18 @@ const ProductDetail = () => {
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />
                               </svg>
                             )}
-                          </button>
-                        </div>
-                      </div>
-                    </>
+	                          </button>
+	                        </div>
+	                        <div className="text-right">
+	                          <Link
+	                            to="/forgot-password"
+	                            className="text-xs font-medium text-orange-500 hover:text-orange-600"
+	                          >
+	                            Forgot Password?
+	                          </Link>
+	                        </div>
+	                      </div>
+	                    </>
                   )}
                 </div>
 

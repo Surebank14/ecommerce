@@ -100,6 +100,7 @@ const OrderConfirmation = () => {
     : 0;
   const walletBalance = Number(account?.availableBalance || 0);
   const remainingBalance = Number(order.installmentPlan?.remainingBalance || 0);
+  const creditBalance = Number(order.installmentPlan?.creditBalance || 0);
   const hasOutOfMarketItems = order.items?.some((item) => item.requiresReplacement);
   const canPayoffFromWallet = order.paymentType === 'installment'
     && remainingBalance > 0
@@ -463,10 +464,12 @@ const OrderConfirmation = () => {
                 ₦{order.installmentPlan.totalPaid?.toLocaleString() || 0}
               </p>
             </div>
-            <div className="rounded-xl border border-gray-200 bg-gray-50 p-4">
-              <p className="text-xs uppercase tracking-wide text-gray-500">Remaining Balance</p>
-              <p className="mt-1 text-lg font-semibold text-orange-700">
-                ₦{order.installmentPlan.remainingBalance?.toLocaleString() || 0}
+            <div className={`rounded-xl border p-4 ${creditBalance > 0 ? 'border-emerald-200 bg-emerald-50' : 'border-gray-200 bg-gray-50'}`}>
+              <p className="text-xs uppercase tracking-wide text-gray-500">
+                {creditBalance > 0 ? 'Credit Balance' : 'Remaining Balance'}
+              </p>
+              <p className={`mt-1 text-lg font-semibold ${creditBalance > 0 ? 'text-emerald-700' : 'text-orange-700'}`}>
+                ₦{(creditBalance > 0 ? creditBalance : remainingBalance).toLocaleString()}
               </p>
             </div>
             <div className="rounded-xl border border-gray-200 bg-gray-50 p-4">
@@ -497,8 +500,10 @@ const OrderConfirmation = () => {
               <p className="font-medium">Any amount</p>
             </div>
             <div>
-              <span className="text-gray-600">Remaining Balance</span>
-              <p className="font-medium">₦{remainingBalance.toLocaleString()}</p>
+              <span className="text-gray-600">{creditBalance > 0 ? 'Credit Balance' : 'Remaining Balance'}</span>
+              <p className={`font-medium ${creditBalance > 0 ? 'text-emerald-700' : ''}`}>
+                ₦{(creditBalance > 0 ? creditBalance : remainingBalance).toLocaleString()}
+              </p>
             </div>
           </div>
 
@@ -522,20 +527,22 @@ const OrderConfirmation = () => {
                       </td>
                     </tr>
                   )}
-                  {payments.map((payment, index) => (
+                  {payments.map((payment, index) => {
+                    const isDebit = payment.type === 'debit' || payment.direction === 'Debit';
+                    return (
                     <tr key={payment._id || `${payment.date}-${index}`}>
                       <td className="px-4 py-3 text-sm font-medium text-gray-900">
-                        Payment {index + 1}
+                        {isDebit ? 'Item delivery debit' : `Payment ${index + 1}`}
                       </td>
                       <td className="px-4 py-3 text-sm text-gray-600">
                         {new Date(payment.date).toLocaleDateString()}
                       </td>
-                      <td className="px-4 py-3 text-sm text-gray-900">
-                        ₦{payment.amount?.toLocaleString()}
+                      <td className={`px-4 py-3 text-sm ${isDebit ? 'text-red-700' : 'text-gray-900'}`}>
+                        {isDebit ? '-' : ''}₦{payment.amount?.toLocaleString()}
                       </td>
                       <td className="px-4 py-3 text-sm">
-                        <span className={`inline-flex rounded-full px-3 py-1 text-xs font-medium capitalize ${getScheduleStatusColor(payment.status)}`}>
-                          {payment.status}
+                        <span className={`inline-flex rounded-full px-3 py-1 text-xs font-medium capitalize ${isDebit ? 'bg-red-100 text-red-700' : getScheduleStatusColor(payment.status)}`}>
+                          {isDebit ? 'debit' : payment.status}
                         </span>
                       </td>
                       <td className="px-4 py-3 text-sm text-gray-600">
@@ -547,7 +554,8 @@ const OrderConfirmation = () => {
                         )}
                       </td>
                     </tr>
-                  ))}
+                  );
+                  })}
                 </tbody>
               </table>
             </div>

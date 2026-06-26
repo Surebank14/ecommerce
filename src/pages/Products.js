@@ -8,7 +8,7 @@ const Products = () => {
   const dispatch = useDispatch();
   const { categoryId } = useParams();
   const [searchParams] = useSearchParams();
-  const { products, categories, loading } = useSelector((state) => state.products);
+  const { products, categories, productsLoading, productsLoaded } = useSelector((state) => state.products);
   const searchCategoryId = searchParams.get('category') || '';
   const searchSubCategoryId = searchParams.get('subcategory') || '';
   const searchQuery = searchParams.get('search') || '';
@@ -209,7 +209,7 @@ const Products = () => {
             )}
           </div>
 
-          {loading ? (
+          {productsLoading || !productsLoaded ? (
             <div className="flex justify-center py-12">
               <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600"></div>
             </div>

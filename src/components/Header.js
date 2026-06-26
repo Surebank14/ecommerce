@@ -80,6 +80,9 @@ const Header = () => {
                 <Link to="/wallet" className="text-gray-700 hover:text-primary-600">
                   Wallet
                 </Link>
+                <Link to="/account" className="text-gray-700 hover:text-primary-600">
+                  Account
+                </Link>
               </>
             )}
           </nav>

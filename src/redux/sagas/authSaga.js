@@ -25,6 +25,13 @@ function* loginSaga(action) {
 
     yield put(loginSuccess(response.data));
 
+    if (response.data.requiresPasswordUpdate) {
+      if (navigate) {
+        navigate('/change-password', { state: { forced: true } });
+      }
+      return;
+    }
+
     // Merge guest cart with customer cart and wait for it to complete
     const sessionId = getSessionId();
     try {

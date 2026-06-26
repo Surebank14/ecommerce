@@ -9,7 +9,7 @@ const Login = () => {
   const [searchParams] = useSearchParams();
   const redirect = searchParams.get('redirect') || '';
 
-  const { loading, error, isAuthenticated } = useSelector((state) => state.auth);
+  const { loading, error, isAuthenticated, requiresPasswordUpdate } = useSelector((state) => state.auth);
   const [showPassword, setShowPassword] = useState(false);
   const [formData, setFormData] = useState({
     phone: '',
@@ -17,13 +17,17 @@ const Login = () => {
   });
 
   useEffect(() => {
+    if (isAuthenticated && requiresPasswordUpdate) {
+      navigate('/change-password', { state: { forced: true } });
+      return;
+    }
     if (isAuthenticated) {
       navigate(redirect ? `/${redirect}` : '/');
     }
     return () => {
       dispatch(clearError());
     };
-  }, [isAuthenticated, navigate, redirect, dispatch]);
+  }, [isAuthenticated, requiresPasswordUpdate, navigate, redirect, dispatch]);
 
   const handleSubmit = (event) => {
     event.preventDefault();
@@ -84,6 +88,15 @@ const Login = () => {
                     </svg>
                   )}
                 </button>
+              </div>
+
+              <div className="text-right">
+                <Link
+                  to="/forgot-password"
+                  className="text-xs font-medium text-orange-500 hover:text-orange-600"
+                >
+                  Forgot Password?
+                </Link>
               </div>
 
               {error && (

@@ -55,6 +55,7 @@ const Register = () => {
     dispatch(registerRequest({
       firstName,
       lastName,
+      email: formData.email.trim(),
       phone: formData.phone,
       address: formData.state || '',
       password: formData.password,

@@ -6,6 +6,10 @@ const initialState = {
   featuredProducts: [],
   categories: [],
   loading: false,
+  productsLoading: false,
+  productsLoaded: false,
+  productLoading: false,
+  productLoaded: false,
   error: null,
 };
 
@@ -15,26 +19,37 @@ const productSlice = createSlice({
   reducers: {
     fetchProductsRequest: (state) => {
       state.loading = true;
+      state.productsLoading = true;
       state.error = null;
     },
     fetchProductsSuccess: (state, action) => {
       state.loading = false;
+      state.productsLoading = false;
+      state.productsLoaded = true;
       state.products = action.payload;
     },
     fetchProductsFailure: (state, action) => {
       state.loading = false;
+      state.productsLoading = false;
+      state.productsLoaded = true;
       state.error = action.payload;
     },
     fetchProductByIdRequest: (state) => {
       state.loading = true;
+      state.productLoading = true;
+      state.productLoaded = false;
       state.error = null;
     },
     fetchProductByIdSuccess: (state, action) => {
       state.loading = false;
+      state.productLoading = false;
+      state.productLoaded = true;
       state.product = action.payload;
     },
     fetchProductByIdFailure: (state, action) => {
       state.loading = false;
+      state.productLoading = false;
+      state.productLoaded = true;
       state.error = action.payload;
     },
     fetchFeaturedProductsRequest: (state) => {
@@ -61,6 +76,7 @@ const productSlice = createSlice({
     },
     clearProduct: (state) => {
       state.product = null;
+      state.productLoaded = false;
     },
   },
 });

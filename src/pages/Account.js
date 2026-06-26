@@ -1,16 +1,57 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
+import axios from 'axios';
 import { Link, useNavigate } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
-import { logout } from '../redux/slices/authSlice';
+import { logout, updateCustomerProfile } from '../redux/slices/authSlice';
+import { API_URL, getAuthHeader } from '../utils/api';
 
 const Account = () => {
   const dispatch = useDispatch();
   const navigate = useNavigate();
   const { isAuthenticated, customer, accountNumber, SBAccountNumber } = useSelector((state) => state.auth);
+  const [email, setEmail] = useState(customer?.email || '');
+  const [savingEmail, setSavingEmail] = useState(false);
+  const [emailMessage, setEmailMessage] = useState('');
+  const [emailError, setEmailError] = useState('');
+
+  useEffect(() => {
+    setEmail(customer?.email || '');
+  }, [customer?.email]);
 
   const handleLogout = () => {
     dispatch(logout());
     navigate('/');
+  };
+
+  const handleSaveEmail = async (event) => {
+    event.preventDefault();
+    setEmailMessage('');
+    setEmailError('');
+
+    const nextEmail = email.trim().toLowerCase();
+    if (nextEmail && !nextEmail.includes('@')) {
+      setEmailError('Enter a valid email address');
+      return;
+    }
+
+    setSavingEmail(true);
+    try {
+      const response = await axios.put(`${API_URL}/api/ecommerce/auth/profile`, {
+        firstName: customer?.firstName || '',
+        lastName: customer?.lastName || '',
+        address: customer?.address || '',
+        email: nextEmail,
+      }, {
+        headers: getAuthHeader(),
+      });
+
+      dispatch(updateCustomerProfile(response.data.customer));
+      setEmailMessage('Email updated successfully');
+    } catch (requestError) {
+      setEmailError(requestError.response?.data?.message || 'Failed to update email');
+    } finally {
+      setSavingEmail(false);
+    }
   };
 
   if (!isAuthenticated) {
@@ -72,7 +113,24 @@ const Account = () => {
             </div>
             <div>
               <p className="text-gray-500">Email</p>
-              <p className="font-medium text-gray-900">{customer?.email || 'Not provided'}</p>
+              <form onSubmit={handleSaveEmail} className="mt-2 flex flex-col gap-2 sm:flex-row">
+                <input
+                  type="email"
+                  value={email}
+                  onChange={(event) => setEmail(event.target.value)}
+                  placeholder="customer@example.com"
+                  className="min-w-0 flex-1 rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-transparent focus:outline-none focus:ring-2 focus:ring-orange-500"
+                />
+                <button
+                  type="submit"
+                  disabled={savingEmail}
+                  className="rounded-lg bg-orange-500 px-4 py-2 text-sm font-semibold text-white transition hover:bg-orange-600 disabled:opacity-50"
+                >
+                  {savingEmail ? 'Saving...' : 'Save'}
+                </button>
+              </form>
+              {emailMessage && <p className="mt-2 text-xs text-green-600">{emailMessage}</p>}
+              {emailError && <p className="mt-2 text-xs text-red-600">{emailError}</p>}
             </div>
             <div>
               <p className="text-gray-500">Address</p>

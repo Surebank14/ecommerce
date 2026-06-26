@@ -18,6 +18,7 @@ const initialState = {
   loading: false,
   error: null,
   isAuthenticated: !!localStorage.getItem('customerToken'),
+  requiresPasswordUpdate: false,
 };
 
 const authSlice = createSlice({
@@ -35,6 +36,7 @@ const authSlice = createSlice({
       state.accountNumber = action.payload.accountNumber;
       state.SBAccountNumber = action.payload.SBAccountNumber;
       state.isAuthenticated = true;
+      state.requiresPasswordUpdate = action.payload.requiresPasswordUpdate === true;
       localStorage.setItem('customerToken', action.payload.token);
       localStorage.setItem('customerData', JSON.stringify(action.payload.customer));
       localStorage.setItem('customerAccountNumber', action.payload.accountNumber || '');
@@ -55,6 +57,7 @@ const authSlice = createSlice({
       state.accountNumber = action.payload.accountNumber;
       state.SBAccountNumber = action.payload.SBAccountNumber;
       state.isAuthenticated = true;
+      state.requiresPasswordUpdate = false;
       localStorage.setItem('customerToken', action.payload.token);
       localStorage.setItem('customerData', JSON.stringify(action.payload.customer));
       localStorage.setItem('customerAccountNumber', action.payload.accountNumber || '');
@@ -74,12 +77,20 @@ const authSlice = createSlice({
       state.loading = false;
       state.error = action.payload;
     },
+    updateCustomerProfile: (state, action) => {
+      state.customer = {
+        ...(state.customer || {}),
+        ...(action.payload || {}),
+      };
+      localStorage.setItem('customerData', JSON.stringify(state.customer));
+    },
     logout: (state) => {
       state.customer = null;
       state.token = null;
       state.accountNumber = null;
       state.SBAccountNumber = null;
       state.isAuthenticated = false;
+      state.requiresPasswordUpdate = false;
       localStorage.removeItem('customerToken');
       localStorage.removeItem('customerData');
       localStorage.removeItem('customerAccountNumber');
@@ -101,6 +112,7 @@ export const {
   checkPhoneRequest,
   checkPhoneSuccess,
   checkPhoneFailure,
+  updateCustomerProfile,
   logout,
   clearError,
 } = authSlice.actions;

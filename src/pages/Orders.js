@@ -145,7 +145,14 @@ const Orders = () => {
                           (flexible payments)
                         </span>
                         <div className="mt-1 text-xs text-gray-500">
-                          Paid: ₦{order.installmentPlan?.totalPaid?.toLocaleString() || 0} • Remaining: ₦{order.installmentPlan?.remainingBalance?.toLocaleString() || 0}
+                          Paid: ₦{order.installmentPlan?.totalPaid?.toLocaleString() || 0} • {' '}
+                          {Number(order.installmentPlan?.creditBalance || 0) > 0 ? (
+                            <span className="font-semibold text-emerald-700">
+                              Credit: ₦{Number(order.installmentPlan?.creditBalance || 0).toLocaleString()}
+                            </span>
+                          ) : (
+                            <>Remaining: ₦{order.installmentPlan?.remainingBalance?.toLocaleString() || 0}</>
+                          )}
                         </div>
                       </>
                     )}

@@ -44,7 +44,7 @@ const heroSlides = [
 
 const Home = () => {
   const dispatch = useDispatch();
-  const { featuredProducts, products, categories, loading } = useSelector((state) => state.products);
+  const { featuredProducts, products, categories, productsLoading, productsLoaded } = useSelector((state) => state.products);
   const [currentSlide, setCurrentSlide] = useState(0);
   const [isAutoPlaying, setIsAutoPlaying] = useState(true);
   const [filters, setFilters] = useState({
@@ -404,7 +404,7 @@ const Home = () => {
             </div>
           </div>
 
-          {loading ? (
+          {productsLoading || !productsLoaded ? (
             <div className="flex justify-center py-12">
               <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600"></div>
             </div>
