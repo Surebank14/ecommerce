@@ -3,11 +3,13 @@ import { Link, Navigate, useLocation } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
 import axios from 'axios';
 import { fetchOrdersRequest } from '../redux/slices/orderSlice';
+import { fetchProductsRequest } from '../redux/slices/productSlice';
 import {
   fetchWalletRequest,
   initializeWalletFundingRequest,
 } from '../redux/slices/walletSlice';
 import { API_URL, getAuthHeader } from '../utils/api';
+import { handleImageFallback, PRODUCT_FALLBACK_IMAGE, resolveImageUrl } from '../utils/image';
 
 const formatCurrency = (amount) => `N${Number(amount || 0).toLocaleString()}`;
 
@@ -43,11 +45,29 @@ const getSelectedOptionsText = (item) => {
 
 const isCollected = (item) => ['delivered', 'completed'].includes(item?.fulfillmentStatus);
 const isActiveOrderItem = (item) => !isCollected(item);
+const lockedOrderStatuses = new Set(['delivered', 'completed', 'shipped', 'cancelled']);
+
+const getProductImage = (product) => (
+  product?.images?.length ? resolveImageUrl(product.images[0]) : PRODUCT_FALLBACK_IMAGE
+);
+
+const getDisplayPrice = (product) => {
+  if (product?.hasVariations && Array.isArray(product.variations) && product.variations.length > 0) {
+    const activePrices = product.variations
+      .filter((variation) => variation.isActive !== false)
+      .map((variation) => Number(variation.price || 0))
+      .filter((price) => price > 0);
+    if (activePrices.length > 0) return Math.min(...activePrices);
+  }
+
+  return Number(product?.price || 0);
+};
 
 const Orders = () => {
   const dispatch = useDispatch();
   const location = useLocation();
   const { orders, loading } = useSelector((state) => state.orders);
+  const { products, productsLoading } = useSelector((state) => state.products);
   const { isAuthenticated } = useSelector((state) => state.auth);
   const {
     account,
@@ -61,6 +81,12 @@ const Orders = () => {
   const [payingItemId, setPayingItemId] = useState('');
   const [pageError, setPageError] = useState('');
   const [showTransactionHistory, setShowTransactionHistory] = useState(false);
+  const [replaceItem, setReplaceItem] = useState(null);
+  const [replacementProductId, setReplacementProductId] = useState('');
+  const [replacementVariationId, setReplacementVariationId] = useState('');
+  const [replacementSearch, setReplacementSearch] = useState('');
+  const [replaceError, setReplaceError] = useState('');
+  const [replaceLoading, setReplaceLoading] = useState(false);
 
   useEffect(() => {
     if (isAuthenticated) {
@@ -81,6 +107,9 @@ const Orders = () => {
 
   const items = activeOrder?.items || [];
   const activeItems = items.filter(isActiveOrderItem);
+  const activeItemsTotalAmount = activeItems.reduce((sum, item) => sum + Number(item.subtotal || 0), 0);
+  const activeItemsPaidAmount = activeItems.reduce((sum, item) => sum + Number(item.paidAmount || 0), 0);
+  const activeItemsRemainingBalance = Math.max(0, activeItemsTotalAmount - activeItemsPaidAmount);
   const totalAmount = Number(activeOrder?.totalAmount || 0);
   const totalPaid = Number(activeOrder?.installmentPlan?.totalPaid || 0);
   const remainingBalance = Number(activeOrder?.installmentPlan?.remainingBalance || Math.max(0, totalAmount - totalPaid));
@@ -92,6 +121,32 @@ const Orders = () => {
     : items.some(isCollected)
       ? 'partly collected'
       : 'pending collection';
+  const selectedReplacementProduct = products.find((product) => product._id === replacementProductId);
+  const activeReplacementVariations = selectedReplacementProduct?.hasVariations && Array.isArray(selectedReplacementProduct.variations)
+    ? selectedReplacementProduct.variations.filter((variation) => variation.isActive !== false)
+    : [];
+  const selectedReplacementVariation = activeReplacementVariations.find(
+    (variation) => variation._id === replacementVariationId
+  );
+  const replacementUnitPrice = selectedReplacementVariation
+    ? Number(selectedReplacementVariation.price || 0)
+    : getDisplayPrice(selectedReplacementProduct);
+  const replacementSubtotal = replacementUnitPrice * Number(replaceItem?.quantity || 1);
+  const replacementOrderTotal = replaceItem
+    ? activeItemsTotalAmount - Number(replaceItem.subtotal || 0) + replacementSubtotal
+    : activeItemsTotalAmount;
+  const replacementRemainingBalance = Math.max(0, replacementOrderTotal - activeItemsPaidAmount);
+  const filteredReplacementProducts = products.filter((product) => {
+    const search = replacementSearch.trim().toLowerCase();
+    const isSameProduct = product._id === replaceItem?.productId;
+    const matchesSearch = !search || [
+      product.name,
+      product.description,
+      product.categoryName,
+    ].some((value) => String(value || '').toLowerCase().includes(search));
+
+    return !isSameProduct && product.isActive !== false && matchesSearch;
+  });
 
   if (!isAuthenticated) {
     return <Navigate to="/login?redirect=orders" />;
@@ -155,6 +210,66 @@ const Orders = () => {
       setPageError(error.response?.data?.message || 'Failed to pay for product from wallet');
     } finally {
       setPayingItemId('');
+    }
+  };
+
+  const openReplaceModal = (item) => {
+    setReplaceItem(item);
+    setReplacementProductId('');
+    setReplacementVariationId('');
+    setReplacementSearch('');
+    setReplaceError('');
+    dispatch(fetchProductsRequest({}));
+  };
+
+  const closeReplaceModal = () => {
+    setReplaceItem(null);
+    setReplacementProductId('');
+    setReplacementVariationId('');
+    setReplacementSearch('');
+    setReplaceError('');
+  };
+
+  const handleReplacementProductSelect = (product) => {
+    setReplacementProductId(product._id);
+    setReplacementVariationId('');
+    setReplaceError('');
+  };
+
+  const handleReplaceItem = async () => {
+    if (!activeOrder?.orderNumber || !replaceItem?._id) return;
+    if (!replacementProductId) {
+      setReplaceError('Select the replacement product');
+      return;
+    }
+    if (activeReplacementVariations.length > 0 && !replacementVariationId) {
+      setReplaceError('Select the product variation');
+      return;
+    }
+    if (lockedOrderStatuses.has(activeOrder.status)) {
+      setReplaceError('This order can no longer be changed');
+      return;
+    }
+
+    setReplaceLoading(true);
+    setReplaceError('');
+
+    try {
+      await axios.put(
+        `${API_URL}/api/ecommerce/orders/number/${activeOrder.orderNumber}/items/${replaceItem._id}/replace`,
+        {
+          productId: replacementProductId,
+          variationId: replacementVariationId,
+        },
+        { headers: getAuthHeader() }
+      );
+      closeReplaceModal();
+      dispatch(fetchOrdersRequest());
+      dispatch(fetchWalletRequest());
+    } catch (error) {
+      setReplaceError(error.response?.data?.message || 'Failed to change product');
+    } finally {
+      setReplaceLoading(false);
     }
   };
 
@@ -322,12 +437,14 @@ const Orders = () => {
                       </td>
                       <td className="px-5 py-4">
                         <div className="flex justify-end gap-2">
-                          <Link
-                            to={`/order-confirmation/${activeOrder.orderNumber}`}
-                            className="rounded-full border border-slate-200 px-3 py-1.5 text-xs font-bold text-slate-700 hover:border-emerald-400 hover:text-emerald-700"
+                          <button
+                            type="button"
+                            onClick={() => openReplaceModal(item)}
+                            disabled={lockedOrderStatuses.has(activeOrder.status)}
+                            className="rounded-full border border-slate-200 px-3 py-1.5 text-xs font-bold text-slate-700 hover:border-emerald-400 hover:text-emerald-700 disabled:cursor-not-allowed disabled:border-slate-100 disabled:text-slate-300"
                           >
                             Change Product
-                          </Link>
+                          </button>
                           <button
                             type="button"
                             onClick={() => handlePayItem(item)}
@@ -345,7 +462,7 @@ const Orders = () => {
               <tfoot>
                 <tr className="bg-slate-50 text-sm font-bold text-slate-950">
                   <td className="px-5 py-4" colSpan="6">Total Amount</td>
-                  <td className="px-5 py-4">{formatCurrency(totalAmount)}</td>
+                  <td className="px-5 py-4">{formatCurrency(activeItemsTotalAmount)}</td>
                   <td className="px-5 py-4" colSpan="2"></td>
                 </tr>
               </tfoot>
@@ -378,12 +495,14 @@ const Orders = () => {
                   </div>
                   <p className="mt-3 text-xs text-slate-500">{activeOrder.shippingAddress || 'No shipping address'}</p>
                   <div className="mt-4 flex gap-2">
-                    <Link
-                      to={`/order-confirmation/${activeOrder.orderNumber}`}
-                      className="flex-1 rounded-full border border-slate-200 px-3 py-2 text-center text-xs font-bold text-slate-700"
+                    <button
+                      type="button"
+                      onClick={() => openReplaceModal(item)}
+                      disabled={lockedOrderStatuses.has(activeOrder.status)}
+                      className="flex-1 rounded-full border border-slate-200 px-3 py-2 text-center text-xs font-bold text-slate-700 disabled:cursor-not-allowed disabled:text-slate-300"
                     >
                       Change Product
-                    </Link>
+                    </button>
                     <button
                       type="button"
                       onClick={() => handlePayItem(item)}
@@ -396,6 +515,18 @@ const Orders = () => {
                 </div>
               );
             })}
+            {activeItems.length > 0 && (
+              <div className="rounded-2xl bg-slate-950 p-4 text-white">
+                <div className="flex items-center justify-between gap-3">
+                  <span className="text-sm font-semibold">Total Amount</span>
+                  <span className="text-base font-bold">{formatCurrency(activeItemsTotalAmount)}</span>
+                </div>
+                <div className="mt-2 flex items-center justify-between gap-3 text-xs text-slate-300">
+                  <span>Remaining</span>
+                  <span>{formatCurrency(activeItemsRemainingBalance)}</span>
+                </div>
+              </div>
+            )}
           </div>
         </section>
 
@@ -535,6 +666,157 @@ const Orders = () => {
                   ))}
                 </div>
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {replaceItem && (
+        <div className="fixed inset-0 z-50 bg-slate-950/60 p-3 sm:p-5">
+          <div className="mx-auto flex h-full max-w-6xl flex-col overflow-hidden rounded-3xl bg-white shadow-2xl">
+            <div className="flex flex-col gap-3 border-b border-slate-100 px-5 py-4 sm:flex-row sm:items-start sm:justify-between">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-wide text-emerald-700">Change Product</p>
+                <h2 className="mt-1 text-xl font-bold text-slate-950">{replaceItem.productName}</h2>
+                <p className="mt-1 text-sm text-slate-500">
+                  Select another available product. Quantity will remain {Number(replaceItem.quantity || 1).toLocaleString()}.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={closeReplaceModal}
+                disabled={replaceLoading}
+                className="self-start rounded-full bg-slate-100 px-4 py-2 text-sm font-bold text-slate-700 hover:bg-slate-200 disabled:cursor-not-allowed"
+              >
+                Close
+              </button>
+            </div>
+
+            <div className="grid min-h-0 flex-1 gap-0 lg:grid-cols-[1fr_320px]">
+              <div className="min-h-0 overflow-y-auto p-4 sm:p-5">
+                <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center">
+                  <input
+                    type="text"
+                    value={replacementSearch}
+                    onChange={(event) => setReplacementSearch(event.target.value)}
+                    placeholder="Search products..."
+                    className="w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => dispatch(fetchProductsRequest({ search: replacementSearch }))}
+                    className="rounded-2xl bg-slate-950 px-5 py-3 text-sm font-bold text-white hover:bg-emerald-700"
+                  >
+                    Search
+                  </button>
+                </div>
+
+                {productsLoading ? (
+                  <div className="flex justify-center py-16">
+                    <div className="h-12 w-12 animate-spin rounded-full border-b-2 border-emerald-600"></div>
+                  </div>
+                ) : filteredReplacementProducts.length === 0 ? (
+                  <div className="rounded-3xl border border-dashed border-slate-200 py-16 text-center text-sm text-slate-500">
+                    No available product found.
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+                    {filteredReplacementProducts.map((product) => {
+                      const selected = product._id === replacementProductId;
+                      return (
+                        <button
+                          key={product._id}
+                          type="button"
+                          onClick={() => handleReplacementProductSelect(product)}
+                          className={`overflow-hidden rounded-2xl border bg-white text-left shadow-sm transition hover:border-emerald-400 hover:shadow-md ${
+                            selected ? 'border-emerald-500 ring-2 ring-emerald-100' : 'border-slate-100'
+                          }`}
+                        >
+                          <div className="aspect-[4/3] bg-slate-100">
+                            <img
+                              src={getProductImage(product)}
+                              alt={product.name}
+                              onError={handleImageFallback}
+                              className="h-full w-full object-cover"
+                            />
+                          </div>
+                          <div className="p-3">
+                            <p className="line-clamp-2 text-sm font-bold text-slate-900">{product.name}</p>
+                            <p className="mt-1 line-clamp-1 text-xs text-slate-500">{product.description}</p>
+                            <p className="mt-2 text-sm font-extrabold text-emerald-700">
+                              {product.hasVariations ? 'From ' : ''}{formatCurrency(getDisplayPrice(product))}
+                            </p>
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+
+              <aside className="border-t border-slate-100 bg-slate-50 p-5 lg:border-l lg:border-t-0">
+                <h3 className="text-base font-bold text-slate-950">Replacement Summary</h3>
+                <div className="mt-4 rounded-2xl bg-white p-4 text-sm shadow-sm">
+                  <div className="flex justify-between gap-3">
+                    <span className="text-slate-500">Old item</span>
+                    <span className="font-bold text-slate-900">{formatCurrency(replaceItem.subtotal)}</span>
+                  </div>
+                  <div className="mt-3 flex justify-between gap-3">
+                    <span className="text-slate-500">New item</span>
+                    <span className="font-bold text-slate-900">{formatCurrency(replacementSubtotal)}</span>
+                  </div>
+                  <div className="mt-3 border-t border-slate-100 pt-3">
+                    <div className="flex justify-between gap-3">
+                      <span className="text-slate-500">New order total</span>
+                      <span className="font-bold text-slate-900">{formatCurrency(replacementOrderTotal)}</span>
+                    </div>
+                    <div className="mt-3 flex justify-between gap-3">
+                      <span className="text-slate-500">Remaining balance</span>
+                      <span className="font-bold text-amber-700">{formatCurrency(replacementRemainingBalance)}</span>
+                    </div>
+                  </div>
+                </div>
+
+                {selectedReplacementProduct && activeReplacementVariations.length > 0 && (
+                  <div className="mt-4">
+                    <label className="mb-2 block text-sm font-bold text-slate-700">Variation</label>
+                    <select
+                      value={replacementVariationId}
+                      onChange={(event) => setReplacementVariationId(event.target.value)}
+                      className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100"
+                    >
+                      <option value="">Select variation</option>
+                      {activeReplacementVariations.map((variation) => (
+                        <option key={variation._id} value={variation._id}>
+                          {variation.name} - {formatCurrency(variation.price)}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+
+                {selectedReplacementProduct && (
+                  <div className="mt-4 rounded-2xl border border-emerald-100 bg-emerald-50 p-4">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-emerald-700">Selected</p>
+                    <p className="mt-1 text-sm font-bold text-slate-950">{selectedReplacementProduct.name}</p>
+                  </div>
+                )}
+
+                {replaceError && (
+                  <div className="mt-4 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-700">
+                    {replaceError}
+                  </div>
+                )}
+
+                <button
+                  type="button"
+                  onClick={handleReplaceItem}
+                  disabled={replaceLoading || !replacementProductId}
+                  className="mt-5 w-full rounded-2xl bg-emerald-600 px-4 py-3 text-sm font-bold text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:bg-emerald-300"
+                >
+                  {replaceLoading ? 'Updating...' : 'Update Product'}
+                </button>
+              </aside>
             </div>
           </div>
         </div>
