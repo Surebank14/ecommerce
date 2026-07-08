@@ -9,6 +9,9 @@ const Login = () => {
   const [searchParams] = useSearchParams();
   const redirect = searchParams.get('redirect') || '';
   const sessionExpired = searchParams.get('sessionExpired') === '1';
+  const sessionExpiredMessage = sessionExpired
+    ? localStorage.getItem('sessionExpiredMessage') || 'Your login session has expired. Please login again to continue.'
+    : '';
 
   const { loading, error, isAuthenticated } = useSelector((state) => state.auth);
   const [showPassword, setShowPassword] = useState(false);
@@ -28,6 +31,7 @@ const Login = () => {
 
   const handleSubmit = (event) => {
     event.preventDefault();
+    localStorage.removeItem('sessionExpiredMessage');
     dispatch(loginRequest({ ...formData, navigate, redirect }));
   };
 
@@ -54,7 +58,7 @@ const Login = () => {
             <form onSubmit={handleSubmit} className="space-y-3">
               {sessionExpired && (
                 <div className="rounded-lg bg-amber-100 p-3 text-sm text-amber-800">
-                  Your login session has expired. Please login again to continue.
+                  {sessionExpiredMessage}
                 </div>
               )}
 

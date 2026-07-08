@@ -457,7 +457,7 @@ const Orders = () => {
         <div className="mb-3 flex flex-col gap-2 sm:mb-6 sm:gap-4 lg:flex-row lg:items-end lg:justify-between">
           <div>
             <h1 className="mt-1 text-xl font-bold text-slate-950 sm:mt-2 sm:text-3xl">My Orders</h1>
-            <p className="mt-1 max-w-2xl text-xs leading-5 text-slate-600 sm:mt-2 sm:text-sm">
+            <p className="mt-1 max-w-2xl rounded-xl bg-emerald-50 px-3 py-2 text-xs font-extrabold leading-5 text-emerald-700 ring-1 ring-emerald-100 sm:mt-2 sm:bg-transparent sm:px-0 sm:py-0 sm:text-sm sm:font-medium sm:text-slate-600 sm:ring-0">
               Thank you Dear {customerName}, our desire is to provide all your needs, feel free to search, browse or ask us on whatsapp
             </p>
           </div>
@@ -506,6 +506,25 @@ const Orders = () => {
               </div>
             </div>
           </section>
+
+          <div className="lg:hidden">
+            <button
+              type="button"
+              onClick={() => {
+                dispatch(fetchWalletRequest());
+                setShowTransactionHistory(true);
+              }}
+              className="flex w-full items-center justify-between rounded-2xl border border-slate-200 bg-white px-3 py-3 text-left shadow-sm sm:rounded-3xl sm:px-5 sm:py-4"
+            >
+              <span>
+                <span className="block text-xs font-bold text-slate-950 sm:text-sm">Transaction History</span>
+                <span className="mt-0.5 block text-[10px] text-slate-500 sm:text-xs">View deposits and product payments</span>
+              </span>
+              <span className="rounded-full bg-slate-950 px-2.5 py-1 text-[10px] font-bold text-white sm:px-3 sm:py-1.5 sm:text-xs">
+                Open
+              </span>
+            </button>
+          </div>
 
           <aside className="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm sm:rounded-3xl sm:p-6">
             <h2 className="text-base font-bold text-slate-950 sm:text-lg">Deposit to Wallet</h2>
@@ -674,25 +693,6 @@ const Orders = () => {
         </section>
 
         {previousSBAccountsSection}
-
-        <div className="mt-3 sm:mt-6 lg:hidden">
-          <button
-            type="button"
-            onClick={() => {
-              dispatch(fetchWalletRequest());
-              setShowTransactionHistory(true);
-            }}
-            className="flex w-full items-center justify-between rounded-2xl border border-slate-200 bg-white px-3 py-3 text-left shadow-sm sm:rounded-3xl sm:px-5 sm:py-4"
-          >
-            <span>
-              <span className="block text-xs font-bold text-slate-950 sm:text-sm">Transaction History</span>
-              <span className="mt-0.5 block text-[10px] text-slate-500 sm:text-xs">View deposits and product payments</span>
-            </span>
-            <span className="rounded-full bg-slate-950 px-2.5 py-1 text-[10px] font-bold text-white sm:px-3 sm:py-1.5 sm:text-xs">
-              Open
-            </span>
-          </button>
-        </div>
 
         <section className="mt-6 hidden rounded-3xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6 lg:block">
           <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">

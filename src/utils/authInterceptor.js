@@ -1,6 +1,7 @@
 import axios from 'axios';
 
 let isRedirectingToLogin = false;
+const SESSION_EXPIRED_MESSAGE = 'Your login session has expired. Please login again to continue.';
 
 const clearCustomerSession = () => {
   localStorage.removeItem('customerToken');
@@ -30,6 +31,7 @@ axios.interceptors.response.use(
       !isRedirectingToLogin
     ) {
       isRedirectingToLogin = true;
+      localStorage.setItem('sessionExpiredMessage', SESSION_EXPIRED_MESSAGE);
       clearCustomerSession();
       window.location.assign(getLoginUrl());
     }
