@@ -120,7 +120,7 @@ const Orders = () => {
   const activeItemsPaidAmount = activeItems.reduce((sum, item) => sum + Number(item.paidAmount || 0), 0);
   const totalAmount = Number(activeOrder?.totalAmount || 0);
   const totalPaid = Number(activeOrder?.installmentPlan?.totalPaid || 0);
-  const remainingBalance = Number(activeOrder?.installmentPlan?.remainingBalance || Math.max(0, totalAmount - totalPaid));
+  const remainingBalance = Number(activeOrder?.installmentPlan?.remainingBalance ?? Math.max(0, totalAmount - totalPaid));
   const walletBalance = Number(account?.availableBalance || 0);
   const progress = totalAmount > 0 ? Math.min(100, Math.round((totalPaid / totalAmount) * 100)) : 0;
   const allCollected = items.length > 0 && items.every(isCollected);
@@ -176,7 +176,7 @@ const Orders = () => {
         {previousSBAccounts.map((accountOrder) => {
           const accountTotal = Number(accountOrder.totalAmount || 0);
           const paidAmount = Number(accountOrder.installmentPlan?.totalPaid || 0);
-          const accountRemaining = Number(accountOrder.installmentPlan?.remainingBalance || Math.max(0, accountTotal - paidAmount));
+          const accountRemaining = Number(accountOrder.installmentPlan?.remainingBalance ?? Math.max(0, accountTotal - paidAmount));
           const accountItems = accountOrder.items || [];
 
           return (
