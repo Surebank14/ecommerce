@@ -528,11 +528,12 @@ const OrderConfirmation = () => {
                     </tr>
                   )}
                   {payments.map((payment, index) => {
-                    const isDebit = payment.type === 'debit' || payment.direction === 'Debit';
+                    const isDebit = payment.type === 'debit' || ['Debit', 'Bought', 'Delivered', 'Purchased'].includes(payment.direction);
+                    const debitLabel = ['Bought', 'Delivered'].includes(payment.direction) ? payment.direction : 'debit';
                     return (
                     <tr key={payment._id || `${payment.date}-${index}`}>
                       <td className="px-4 py-3 text-sm font-medium text-gray-900">
-                        {isDebit ? 'Item delivery debit' : `Payment ${index + 1}`}
+                        {isDebit ? debitLabel : `Payment ${index + 1}`}
                       </td>
                       <td className="px-4 py-3 text-sm text-gray-600">
                         {new Date(payment.date).toLocaleDateString()}
@@ -542,7 +543,7 @@ const OrderConfirmation = () => {
                       </td>
                       <td className="px-4 py-3 text-sm">
                         <span className={`inline-flex rounded-full px-3 py-1 text-xs font-medium capitalize ${isDebit ? 'bg-red-100 text-red-700' : getScheduleStatusColor(payment.status)}`}>
-                          {isDebit ? 'debit' : payment.status}
+                          {isDebit ? debitLabel : payment.status}
                         </span>
                       </td>
                       <td className="px-4 py-3 text-sm text-gray-600">

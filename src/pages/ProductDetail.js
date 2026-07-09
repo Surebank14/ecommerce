@@ -52,12 +52,13 @@ const ProductDetail = () => {
   const [showStateDropdown, setShowStateDropdown] = useState(false);
   const [termsAccepted, setTermsAccepted] = useState(false);
   const [showTermsModal, setShowTermsModal] = useState(false);
-  const [customerEmail, setCustomerEmail] = useState('');
+  const customerEmail = '';
   const [processingPayment, setProcessingPayment] = useState(false);
   const [paymentErrorMessage, setPaymentErrorMessage] = useState('');
   const [showPaymentSourceModal, setShowPaymentSourceModal] = useState(false);
   const [pendingPaymentData, setPendingPaymentData] = useState(null);
-  const [paymentSourceMode, setPaymentSourceMode] = useState('all');
+  const [paymentSourceMode] = useState('all');
+  const [hasActiveSBOrder, setHasActiveSBOrder] = useState(false);
   const [relatedProducts, setRelatedProducts] = useState([]);
   const [relatedLoading, setRelatedLoading] = useState(false);
 
@@ -70,7 +71,7 @@ const ProductDetail = () => {
   const [buyNowState, setBuyNowState] = useState('');
   const [buyNowLGA, setBuyNowLGA] = useState('');
   const [buyNowTown, setBuyNowTown] = useState('');
-  const [buyNowEmail, setBuyNowEmail] = useState('');
+  const buyNowEmail = '';
 
   // SureBank pickup locations
   const pickupLocations = [
@@ -144,6 +145,22 @@ const ProductDetail = () => {
       dispatch(fetchWalletRequest());
     }
   }, [dispatch, isAuthenticated]);
+
+  useEffect(() => {
+    if (!isAuthenticated) {
+      setHasActiveSBOrder(false);
+      return;
+    }
+
+    axios.get(
+      `${API_URL}/api/ecommerce/orders/active`,
+      { headers: getAuthHeader() }
+    ).then((response) => {
+      setHasActiveSBOrder(Boolean(response.data?.hasActiveOrder));
+    }).catch(() => {
+      setHasActiveSBOrder(false);
+    });
+  }, [isAuthenticated]);
 
   const handleLogin = () => {
     if (loginForm.phone && loginForm.password) {
@@ -232,29 +249,6 @@ const ProductDetail = () => {
     }
   };
 
-  // Calculate estimated delivery dates
-  const getDeliveryDates = () => {
-    const today = new Date();
-    const minDate = new Date(today);
-    minDate.setDate(minDate.getDate() + 2); // Minimum 2 days
-    const maxDate = new Date(today);
-    maxDate.setDate(maxDate.getDate() + 14); // Maximum 14 days
-
-    const formatDate = (date) => {
-      return date.toLocaleDateString('en-US', {
-        weekday: 'long',
-        month: 'long',
-        day: 'numeric',
-        year: 'numeric'
-      });
-    };
-
-    return {
-      minDate: formatDate(minDate),
-      maxDate: formatDate(maxDate)
-    };
-  };
-
   const openPaymentSourceModal = useCallback(async (paymentData) => {
     setPaymentErrorMessage('');
     setProcessingPayment(true);
@@ -266,31 +260,19 @@ const ProductDetail = () => {
       );
 
       if (activeResponse.data?.hasActiveOrder) {
-        if (paymentData.paymentType === 'installment') {
-          setPaymentSourceMode('bankOnly');
-          setProcessingPayment(false);
-          dispatch(initializePaymentRequest({
-            paymentData: { ...paymentData, paymentSource: 'bank' },
-            onSuccess: (data) => {
-              if (data?.authorization_url) {
-                window.location.href = data.authorization_url;
-                return;
-              }
+        const addResponse = await axios.post(
+          `${API_URL}/api/ecommerce/orders/active/items`,
+          paymentData,
+          { headers: getAuthHeader() }
+        );
+        const orderNumber = addResponse.data?.order?.orderNumber;
+        setShowPaymentSourceModal(false);
+        navigate(orderNumber ? `/orders?orderNumber=${orderNumber}` : '/orders');
+        return;
+      }
 
-              setProcessingPayment(false);
-              setPaymentErrorMessage('Failed to get payment URL. Please try again.');
-            },
-            onError: (error) => {
-              setProcessingPayment(false);
-              setPaymentErrorMessage(error || 'Payment initialization failed. Please try again.');
-            }
-          }));
-          return;
-        }
-
-        setPendingPaymentData(paymentData);
-        setPaymentSourceMode('existingOrder');
-        setShowPaymentSourceModal(true);
+      if (Number(paymentData.amountToCharge || 0) <= 0) {
+        setPaymentErrorMessage('Please enter the amount you want to pay now');
         setProcessingPayment(false);
         return;
       }
@@ -315,7 +297,7 @@ const ProductDetail = () => {
       setPaymentErrorMessage(error.response?.data?.message || 'Unable to prepare checkout. Please try again.');
       setProcessingPayment(false);
     }
-  }, [dispatch]);
+  }, [dispatch, navigate]);
 
   // Handle Buy Now with Paystack (outright payment)
   const handleBuyNowPayment = useCallback(() => {
@@ -325,31 +307,39 @@ const ProductDetail = () => {
       return;
     }
 
+    setProcessingPayment(true);
+    setPaymentErrorMessage('');
+
     if (hasVariations && !selectedVariation) {
+      setProcessingPayment(false);
       setPaymentErrorMessage('Please select a product variation');
       return;
     }
 
-    const email = buyNowEmail;
+    const email = String(buyNowEmail || customer?.email || '').trim();
     // Validate email format only if provided
     if (email && (!email.includes('@') || !email.includes('.'))) {
+      setProcessingPayment(false);
       setPaymentErrorMessage('Please provide a valid email address (e.g., example@email.com)');
       return;
     }
 
     // Validate delivery method
     if (!deliveryMethod) {
+      setProcessingPayment(false);
       setPaymentErrorMessage('Please select a delivery method');
       return;
     }
 
     // Validate address for home delivery or pickup location for pickup
     if (deliveryMethod === 'home' && !buyNowAddress) {
+      setProcessingPayment(false);
       setPaymentErrorMessage('Please enter your delivery address');
       return;
     }
 
     if (deliveryMethod === 'pickup' && !selectedPickupLocation) {
+      setProcessingPayment(false);
       setPaymentErrorMessage('Please select a pickup location');
       return;
     }
@@ -485,23 +475,30 @@ const ProductDetail = () => {
       return;
     }
 
+    setProcessingPayment(true);
+    setPaymentErrorMessage('');
+
     // Validate email format only if provided
-    const email = customerEmail;
+    const email = String(customerEmail || customer?.email || '').trim();
     if (email && (!email.includes('@') || !email.includes('.'))) {
+      setProcessingPayment(false);
       setPaymentErrorMessage('Please provide a valid email address (e.g., example@email.com)');
       return;
     }
 
-    const amountToPay = Number(firstPaymentAmount);
-    if (!Number.isFinite(amountToPay) || amountToPay <= 0) {
+    const amountToPay = hasActiveSBOrder ? 0 : Number(firstPaymentAmount);
+    if (!hasActiveSBOrder && (!Number.isFinite(amountToPay) || amountToPay <= 0)) {
+      setProcessingPayment(false);
       setPaymentErrorMessage('Please enter the amount you want to pay now');
       return;
     }
     if (hasVariations && !selectedVariation) {
+      setProcessingPayment(false);
       setPaymentErrorMessage('Please select a product variation');
       return;
     }
-    if (amountToPay > Number(selectedPrice || 0)) {
+    if (!hasActiveSBOrder && amountToPay > Number(selectedPrice || 0)) {
+      setProcessingPayment(false);
       setPaymentErrorMessage(`First payment cannot exceed ₦${Number(selectedPrice || 0).toLocaleString()}`);
       return;
     }
@@ -530,7 +527,7 @@ const ProductDetail = () => {
     openPaymentSourceModal(paymentData);
   }, [
     isAuthenticated, customerEmail, customer, product, firstPaymentAmount,
-    deliveryAddress, selectedLGA, selectedState, signupForm.phone, hasVariations, selectedVariation, selectedPrice, openPaymentSourceModal
+    deliveryAddress, selectedLGA, selectedState, signupForm.phone, hasVariations, selectedVariation, selectedPrice, hasActiveSBOrder, openPaymentSourceModal
   ]);
 
   const getCategoryName = (categoryId) => {
@@ -818,11 +815,6 @@ const ProductDetail = () => {
             <p className="text-center text-gray-700">
               You will pay <span className="text-orange-500 font-bold">₦{selectedPrice?.toLocaleString()}</span> once.
             </p>
-            <p className="text-center text-sm text-gray-500 mt-2">
-              Your item will be shipped between{' '}
-              <span className="text-orange-500">{getDeliveryDates().minDate}</span> and{' '}
-              <span className="text-orange-500">{getDeliveryDates().maxDate}</span>.
-            </p>
           </div>
 
           {/* Delivery Address Section */}
@@ -1006,10 +998,10 @@ const ProductDetail = () => {
                       setBuyNowTermsAccepted(false);
                     }
                   }}
-                  className={`w-6 h-6 rounded flex items-center justify-center border-2 transition-colors ${
+                  className={`w-6 h-6 rounded flex items-center justify-center border-[3px] transition-colors ${
                     buyNowTermsAccepted
                       ? 'bg-orange-500 border-orange-500'
-                      : 'border-gray-300 hover:border-orange-400'
+                      : 'border-orange-500 bg-orange-50 hover:bg-orange-100'
                   }`}
                 >
                   {buyNowTermsAccepted && (
@@ -1018,8 +1010,8 @@ const ProductDetail = () => {
                     </svg>
                   )}
                 </button>
-                <span className="text-sm text-gray-700">
-                  I accept SureBank <span className="text-orange-500">Terms and Conditions.</span>
+                <span className="text-sm font-semibold text-orange-600">
+                  I accept SureBank <span className="text-orange-600">Terms and Conditions.</span>
                 </span>
               </div>
               <button
@@ -1031,68 +1023,9 @@ const ProductDetail = () => {
             </div>
           )}
 
-          {/* Payment Summary - Shows when terms are accepted */}
-          {buyNowTermsAccepted && deliveryMethod && (
-            <div className="mt-4">
-              {/* Payment Plan Summary Banner */}
-              <div className="mt-4 bg-gray-100 rounded-xl p-3">
-                <div className="flex items-center justify-between gap-2 flex-wrap">
-                  <span className="px-4 py-2 bg-white rounded-full text-sm text-gray-700 border border-gray-200">
-                    Once plan
-                  </span>
-                  <span className="px-4 py-2 bg-white rounded-full text-sm text-gray-700 border border-gray-200">
-                    1 payment
-                  </span>
-                  <span className="px-4 py-2 bg-white rounded-full text-sm text-orange-500 font-semibold border border-orange-200">
-                    ₦{selectedPrice?.toLocaleString()} due now
-                  </span>
-                </div>
-              </div>
-
-              {/* Email Input for Payment Receipt */}
-              <div className="mt-4">
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Email Address
-                </label>
-                <input
-                  type="email"
-                  value={buyNowEmail}
-                  onChange={(e) => setBuyNowEmail(e.target.value)}
-                  placeholder="example@email.com"
-                  className="w-full px-4 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
-                />
-                <p className="text-xs text-gray-500 mt-1">For payment receipt (if provided)</p>
-              </div>
-
-              {/* Payment Error Message */}
-              {paymentErrorMessage && (
-                <div className="mt-3 p-3 bg-red-100 text-red-700 rounded-lg text-sm">
-                  {paymentErrorMessage}
-                </div>
-              )}
-
-              {/* Pay Now Button */}
-              <button
-                onClick={handleBuyNowPayment}
-                disabled={processingPayment || paymentLoading}
-                className={`w-full mt-4 py-3 rounded-full text-sm font-medium transition-colors ${
-                  processingPayment || paymentLoading
-                    ? 'bg-gray-400 text-white cursor-not-allowed'
-                    : 'bg-orange-500 hover:bg-orange-600 text-white'
-                }`}
-              >
-                {processingPayment || paymentLoading ? (
-                  <span className="flex items-center justify-center gap-2">
-                    <svg className="animate-spin h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                    </svg>
-                    Processing Payment...
-                  </span>
-                ) : (
-                  'Pay Now'
-                )}
-              </button>
+          {paymentErrorMessage && (
+            <div className="mt-3 p-3 bg-red-100 text-red-700 rounded-lg text-sm">
+              {paymentErrorMessage}
             </div>
           )}
 
@@ -1119,28 +1052,36 @@ const ProductDetail = () => {
       {showPlanSetup && (
         <div className="mx-auto mt-4 max-w-xs sm:max-w-sm md:max-w-md bg-white rounded-xl p-4 shadow-sm">
           <h2 className="text-base font-semibold text-gray-900">Pay Small Small</h2>
-          <p className="text-sm text-gray-500 mt-1">Enter the amount you want to pay now. You can add more money anytime from My Orders. There is no fixed duration or payment boundary, and your product will be available for pickup or delivery when full payment is complete.</p>
+          <p className="text-sm text-gray-500 mt-1">
+            {hasActiveSBOrder
+              ? 'This product will be added to your existing SB order. You can pay from your order wallet in My Orders.'
+              : 'Enter the amount you want to pay now. You can add more money anytime from My Orders. There is no fixed duration or payment boundary, and your product will be available for pickup or delivery when full payment is complete.'}
+          </p>
 
           <div className="mt-4 rounded-lg border border-orange-200 bg-orange-50 p-3">
             <div className="flex justify-between text-sm">
               <span className="text-gray-600">Product price</span>
               <span className="font-semibold">₦{selectedPrice?.toLocaleString()}</span>
             </div>
-            <label className="mt-3 block text-sm font-medium text-gray-700">First payment amount</label>
-            <input
-              type="number"
-              min="1"
-              max={selectedPrice}
-              value={firstPaymentAmount}
-              onChange={(e) => setFirstPaymentAmount(e.target.value)}
-              placeholder="Enter amount to pay now"
-              className="mt-1 w-full rounded-lg border border-orange-200 px-4 py-3 text-sm focus:border-orange-500 focus:outline-none focus:ring-2 focus:ring-orange-500"
-            />
-            <p className="mt-2 text-xs text-gray-500">
-              Remaining balance after this payment: ₦{Math.max(0, Number(selectedPrice || 0) - Number(firstPaymentAmount || 0)).toLocaleString()}
-            </p>
+            {!hasActiveSBOrder && (
+              <>
+                <label className="mt-3 block text-sm font-medium text-gray-700">First payment amount</label>
+                <input
+                  type="number"
+                  min="1"
+                  max={selectedPrice}
+                  value={firstPaymentAmount}
+                  onChange={(e) => setFirstPaymentAmount(e.target.value)}
+                  placeholder="Enter amount to pay now"
+                  className="mt-1 w-full rounded-lg border border-orange-200 px-4 py-3 text-sm focus:border-orange-500 focus:outline-none focus:ring-2 focus:ring-orange-500"
+                />
+                <p className="mt-2 text-xs text-gray-500">
+                  Remaining balance after this payment: ₦{Math.max(0, Number(selectedPrice || 0) - Number(firstPaymentAmount || 0)).toLocaleString()}
+                </p>
+              </>
+            )}
 
-            {Number(firstPaymentAmount) > 0 && Number(firstPaymentAmount) <= Number(selectedPrice || 0) && (
+            {(hasActiveSBOrder || (Number(firstPaymentAmount) > 0 && Number(firstPaymentAmount) <= Number(selectedPrice || 0))) && (
               <div className="mt-4 pt-4 border-t border-orange-200">
                 <div className="flex justify-between items-start">
                   <span className="text-sm font-medium text-gray-700">Delivery Address</span>
@@ -1165,7 +1106,7 @@ const ProductDetail = () => {
           </div>
 
           {/* Terms & Conditions Section - Shows when delivery address is set */}
-          {Number(firstPaymentAmount) > 0 && deliveryAddress && (
+          {(hasActiveSBOrder || Number(firstPaymentAmount) > 0) && deliveryAddress && (
             <div className="mt-4 pt-4 border-t border-orange-200">
               <div className="flex items-center gap-2">
                 <button
@@ -1176,10 +1117,10 @@ const ProductDetail = () => {
                       setTermsAccepted(false);
                     }
                   }}
-                  className={`w-6 h-6 rounded flex items-center justify-center border-2 transition-colors ${
+                  className={`w-6 h-6 rounded flex items-center justify-center border-[3px] transition-colors ${
                     termsAccepted
                       ? 'bg-orange-500 border-orange-500'
-                      : 'border-gray-300 hover:border-orange-400'
+                      : 'border-orange-500 bg-orange-50 hover:bg-orange-100'
                   }`}
                 >
                   {termsAccepted && (
@@ -1188,8 +1129,8 @@ const ProductDetail = () => {
                     </svg>
                   )}
                 </button>
-                <span className="text-sm text-gray-700">
-                  I accept SureBank <span className="text-orange-500">Terms and Conditions.</span>
+                <span className="text-sm font-semibold text-orange-600">
+                  I accept SureBank <span className="text-orange-600">Terms and Conditions.</span>
                 </span>
               </div>
               <button
@@ -1201,72 +1142,14 @@ const ProductDetail = () => {
             </div>
           )}
 
-          {/* Payment Summary Section - Shows when terms are accepted */}
-          {Number(firstPaymentAmount) > 0 && deliveryAddress && termsAccepted && (
-            <div className="mt-4">
-              <div className="mt-4 bg-gray-100 rounded-xl p-3">
-                <div className="flex items-center justify-between gap-2 flex-wrap">
-                  <span className="px-4 py-2 bg-white rounded-full text-sm text-gray-700 border border-gray-200">
-                    Flexible payment
-                  </span>
-                  <span className="px-4 py-2 bg-white rounded-full text-sm text-gray-700 border border-gray-200">
-                    Pay any amount anytime
-                  </span>
-                  <span className="px-4 py-2 bg-white rounded-full text-sm text-orange-500 font-semibold border border-orange-200">
-                    ₦{Number(firstPaymentAmount || 0).toLocaleString()} due now
-                  </span>
-                </div>
-              </div>
-
-              {/* Email Input for Payment Receipt */}
-              <div className="mt-4">
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Email Address
-                </label>
-                <input
-                  type="email"
-                  value={customerEmail}
-                  onChange={(e) => setCustomerEmail(e.target.value)}
-                  placeholder="example@email.com"
-                  className="w-full px-4 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
-                />
-                <p className="text-xs text-gray-500 mt-1">For payment receipt (if provided)</p>
-              </div>
-
-              {/* Payment Error Message */}
-              {(paymentErrorMessage || paymentError) && (
-                <div className="mt-3 p-3 bg-red-100 text-red-700 rounded-lg text-sm">
-                  {paymentErrorMessage || paymentError}
-                </div>
-              )}
-
-              {/* Start Installments Button */}
-              <button
-                onClick={handlePaySmallSmall}
-                disabled={processingPayment || paymentLoading}
-                className={`w-full mt-4 py-3 rounded-full text-sm font-medium transition-colors ${
-                  processingPayment || paymentLoading
-                    ? 'bg-gray-400 text-white cursor-not-allowed'
-                    : 'bg-orange-500 hover:bg-orange-600 text-white'
-                }`}
-              >
-                {processingPayment || paymentLoading ? (
-                  <span className="flex items-center justify-center gap-2">
-                    <svg className="animate-spin h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                    </svg>
-                    Processing Payment...
-                  </span>
-                ) : (
-                  'Start pay small small'
-                )}
-              </button>
+          {(paymentErrorMessage || paymentError) && (
+            <div className="mt-3 p-3 bg-red-100 text-red-700 rounded-lg text-sm">
+              {paymentErrorMessage || paymentError}
             </div>
           )}
 
           {/* Continue Button - Shows when terms not accepted or no address */}
-          {Number(firstPaymentAmount) > 0 && (!deliveryAddress || !termsAccepted) && (
+          {(hasActiveSBOrder || Number(firstPaymentAmount) > 0) && (!deliveryAddress || !termsAccepted) && (
             <button
               onClick={() => {
                 if (!deliveryAddress) {
@@ -1461,6 +1344,20 @@ const ProductDetail = () => {
         </div>
       )}
 
+      {processingPayment && !showPaymentSourceModal && !showTermsModal && (
+        <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/50 p-4">
+          <div className="w-full max-w-xs rounded-2xl bg-white p-6 text-center shadow-2xl">
+            <div className="mx-auto h-12 w-12 animate-spin rounded-full border-4 border-orange-100 border-t-orange-500"></div>
+            <p className="mt-4 text-sm font-semibold text-gray-900">
+              {hasActiveSBOrder ? 'Adding product to your order...' : 'Preparing payment...'}
+            </p>
+            <p className="mt-1 text-xs text-gray-500">
+              {hasActiveSBOrder ? 'Please wait while we take you to My Orders.' : 'Please wait while we open your payment page.'}
+            </p>
+          </div>
+        </div>
+      )}
+
       {/* Terms & Conditions Modal */}
       {showTermsModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
@@ -1539,17 +1436,22 @@ const ProductDetail = () => {
             <div className="p-4 border-t">
               <button
                 onClick={() => {
-                  // Set terms accepted for the active flow
+                  setProcessingPayment(true);
+                  setPaymentErrorMessage('');
                   if (showBuyNowSetup) {
                     setBuyNowTermsAccepted(true);
+                    setShowTermsModal(false);
+                    handleBuyNowPayment();
                   } else {
                     setTermsAccepted(true);
+                    setShowTermsModal(false);
+                    handlePaySmallSmall();
                   }
-                  setShowTermsModal(false);
                 }}
-                className="w-full py-3 bg-orange-500 hover:bg-orange-600 text-white rounded-full text-sm font-medium"
+                disabled={processingPayment || paymentLoading}
+                className="w-full py-3 bg-orange-500 hover:bg-orange-600 text-white rounded-full text-sm font-medium disabled:cursor-not-allowed disabled:bg-gray-400"
               >
-                I Accept Terms & Conditions
+                {processingPayment || paymentLoading ? 'Processing...' : 'I Accept Terms & Conditions'}
               </button>
               <button
                 onClick={() => setShowTermsModal(false)}

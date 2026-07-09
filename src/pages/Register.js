@@ -2,7 +2,14 @@ import React, { useState, useEffect } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
 import { registerRequest, clearError } from '../redux/slices/authSlice';
-import { getStates } from '../data/nigerianLocations';
+import { getStates, getLGAs, getTowns } from '../data/nigerianLocations';
+
+const formatAddress = ({ streetAddress, town, lga, state }) => (
+  [streetAddress, town, lga, state]
+    .map((value) => String(value || '').trim())
+    .filter(Boolean)
+    .join(', ')
+);
 
 const Register = () => {
   const dispatch = useDispatch();
@@ -17,7 +24,10 @@ const Register = () => {
     fullName: '',
     email: '',
     phone: '',
+    streetAddress: '',
     state: '',
+    lga: '',
+    town: '',
     password: '',
     referralCode: '',
   });
@@ -57,7 +67,7 @@ const Register = () => {
       lastName,
       email: formData.email.trim(),
       phone: formData.phone,
-      address: formData.state || '',
+      address: formatAddress(formData),
       password: formData.password,
       navigate,
       redirect
@@ -107,9 +117,24 @@ const Register = () => {
                   onChange={(event) => updateField('phone', event.target.value)}
                   className="w-full rounded-lg border border-gray-200 px-4 py-3 text-sm focus:border-transparent focus:outline-none focus:ring-2 focus:ring-orange-500"
                 />
+                <input
+                  type="text"
+                  placeholder="House number, Street name..."
+                  value={formData.streetAddress}
+                  onChange={(event) => updateField('streetAddress', event.target.value)}
+                  className="w-full rounded-lg border border-gray-200 px-4 py-3 text-sm focus:border-transparent focus:outline-none focus:ring-2 focus:ring-orange-500"
+                />
                 <select
                   value={formData.state}
-                  onChange={(event) => updateField('state', event.target.value)}
+                  onChange={(event) => {
+                    setValidationError('');
+                    setFormData((prev) => ({
+                      ...prev,
+                      state: event.target.value,
+                      lga: '',
+                      town: '',
+                    }));
+                  }}
                   className="w-full rounded-lg border border-gray-200 px-4 py-3 text-sm text-gray-500 focus:border-transparent focus:outline-none focus:ring-2 focus:ring-orange-500"
                 >
                   <option value="">Select State</option>
@@ -117,6 +142,37 @@ const Register = () => {
                     <option key={state} value={state}>{state}</option>
                   ))}
                 </select>
+                {formData.state && (
+                  <select
+                    value={formData.lga}
+                    onChange={(event) => {
+                      setValidationError('');
+                      setFormData((prev) => ({
+                        ...prev,
+                        lga: event.target.value,
+                        town: '',
+                      }));
+                    }}
+                    className="w-full rounded-lg border border-gray-200 px-4 py-3 text-sm text-gray-500 focus:border-transparent focus:outline-none focus:ring-2 focus:ring-orange-500"
+                  >
+                    <option value="">Select LGA</option>
+                    {getLGAs(formData.state).map((lga) => (
+                      <option key={lga} value={lga}>{lga}</option>
+                    ))}
+                  </select>
+                )}
+                {formData.lga && (
+                  <select
+                    value={formData.town}
+                    onChange={(event) => updateField('town', event.target.value)}
+                    className="w-full rounded-lg border border-gray-200 px-4 py-3 text-sm text-gray-500 focus:border-transparent focus:outline-none focus:ring-2 focus:ring-orange-500"
+                  >
+                    <option value="">Select Town</option>
+                    {getTowns(formData.state, formData.lga).map((town) => (
+                      <option key={town} value={town}>{town}</option>
+                    ))}
+                  </select>
+                )}
                 <div className="relative">
                   <input
                     type={showPassword ? 'text' : 'password'}

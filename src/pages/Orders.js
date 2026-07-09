@@ -66,6 +66,7 @@ const getDisplayPrice = (product) => {
 const getTransactionNarration = (transaction) => (
   String(transaction?.narration || '').replace(/\s+-\s+Ref:.+$/i, '')
 );
+const isDebitTransaction = (transaction) => ['Debit', 'Bought', 'Delivered', 'Purchased'].includes(transaction?.direction);
 
 const Orders = () => {
   const dispatch = useDispatch();
@@ -736,15 +737,15 @@ const Orders = () => {
                       <td className="min-w-[280px] px-3 py-4 font-medium text-slate-800">{getTransactionNarration(transaction)}</td>
                       <td className="px-3 py-4">
                         <span className={`rounded-full px-2.5 py-1 text-xs font-bold ${
-                          transaction.direction === 'Debit' ? 'bg-rose-100 text-rose-700' : 'bg-emerald-100 text-emerald-700'
+                          isDebitTransaction(transaction) ? 'bg-rose-100 text-rose-700' : 'bg-emerald-100 text-emerald-700'
                         }`}>
                           {transaction.direction}
                         </span>
                       </td>
                       <td className={`whitespace-nowrap px-3 py-4 font-bold ${
-                        transaction.direction === 'Debit' ? 'text-rose-600' : 'text-emerald-600'
+                        isDebitTransaction(transaction) ? 'text-rose-600' : 'text-emerald-600'
                       }`}>
-                        {transaction.direction === 'Debit' ? '-' : '+'}{formatCurrency(transaction.amount)}
+                        {isDebitTransaction(transaction) ? '-' : '+'}{formatCurrency(transaction.amount)}
                       </td>
                       <td className="whitespace-nowrap px-3 py-4 text-slate-700">{formatCurrency(transaction.balance)}</td>
                     </tr>
@@ -792,16 +793,16 @@ const Orders = () => {
                           <p className="mt-0.5 text-[10px] text-slate-500 sm:mt-1 sm:text-xs">{transaction.date}</p>
                         </div>
                         <span className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold sm:px-2.5 sm:py-1 sm:text-xs ${
-                          transaction.direction === 'Debit' ? 'bg-rose-100 text-rose-700' : 'bg-emerald-100 text-emerald-700'
+                          isDebitTransaction(transaction) ? 'bg-rose-100 text-rose-700' : 'bg-emerald-100 text-emerald-700'
                         }`}>
                           {transaction.direction}
                         </span>
                       </div>
                       <div className="mt-2.5 flex items-center justify-between gap-2 sm:mt-4 sm:gap-3">
                         <span className={`text-sm font-bold sm:text-base ${
-                          transaction.direction === 'Debit' ? 'text-rose-600' : 'text-emerald-600'
+                          isDebitTransaction(transaction) ? 'text-rose-600' : 'text-emerald-600'
                         }`}>
-                          {transaction.direction === 'Debit' ? '-' : '+'}{formatCurrency(transaction.amount)}
+                          {isDebitTransaction(transaction) ? '-' : '+'}{formatCurrency(transaction.amount)}
                         </span>
                         <span className="text-[10px] font-semibold text-slate-500 sm:text-xs">
                           Bal: {formatCurrency(transaction.balance)}

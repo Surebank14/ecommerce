@@ -9,6 +9,7 @@ import {
 } from '../redux/slices/walletSlice';
 
 const formatCurrency = (amount) => `N${Number(amount || 0).toLocaleString()}`;
+const isDebitTransaction = (transaction) => ['Debit', 'Bought', 'Delivered', 'Purchased'].includes(transaction?.direction);
 
 const Wallet = () => {
   const dispatch = useDispatch();
@@ -131,7 +132,7 @@ const Wallet = () => {
                           <p className="mt-1 text-xs text-gray-500">{transaction.date}</p>
                         </div>
                         <span className={`inline-flex rounded-full px-3 py-1 text-xs font-medium ${
-                          transaction.direction === 'Debit'
+                          isDebitTransaction(transaction)
                             ? 'bg-red-100 text-red-700'
                             : 'bg-green-100 text-green-700'
                         }`}>
@@ -140,9 +141,9 @@ const Wallet = () => {
                       </div>
                       <div className="mt-3 flex items-center justify-between gap-3">
                         <span className={`font-semibold ${
-                          transaction.direction === 'Debit' ? 'text-red-600' : 'text-green-600'
+                          isDebitTransaction(transaction) ? 'text-red-600' : 'text-green-600'
                         }`}>
-                          {transaction.direction === 'Debit' ? '-' : '+'}{formatCurrency(transaction.amount)}
+                          {isDebitTransaction(transaction) ? '-' : '+'}{formatCurrency(transaction.amount)}
                         </span>
                         <span className="text-gray-600">Bal: {formatCurrency(transaction.balance)}</span>
                       </div>
@@ -167,7 +168,7 @@ const Wallet = () => {
                         <td className="px-3 py-4 min-w-[280px]">{transaction.narration}</td>
                         <td className="px-3 py-4 whitespace-nowrap">
                           <span className={`inline-flex rounded-full px-3 py-1 text-xs font-medium ${
-                            transaction.direction === 'Debit'
+                            isDebitTransaction(transaction)
                               ? 'bg-red-100 text-red-700'
                               : 'bg-green-100 text-green-700'
                           }`}>
@@ -175,9 +176,9 @@ const Wallet = () => {
                           </span>
                         </td>
                         <td className={`px-3 py-4 whitespace-nowrap font-semibold ${
-                          transaction.direction === 'Debit' ? 'text-red-600' : 'text-green-600'
+                          isDebitTransaction(transaction) ? 'text-red-600' : 'text-green-600'
                         }`}>
-                          {transaction.direction === 'Debit' ? '-' : '+'}{formatCurrency(transaction.amount)}
+                          {isDebitTransaction(transaction) ? '-' : '+'}{formatCurrency(transaction.amount)}
                         </td>
                         <td className="px-3 py-4 whitespace-nowrap">{formatCurrency(transaction.balance)}</td>
                       </tr>

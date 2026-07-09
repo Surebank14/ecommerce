@@ -14,6 +14,13 @@ import { getStates, getLGAs, getTowns } from '../data/nigerianLocations';
 import { PRODUCT_FALLBACK_IMAGE, resolveImageUrl } from '../utils/image';
 import { API_URL, getAuthHeader } from '../utils/api';
 
+const formatAddress = ({ streetAddress, town, lga, state }) => (
+  [streetAddress, town, lga, state]
+    .map((value) => String(value || '').trim())
+    .filter(Boolean)
+    .join(', ')
+);
+
 const Cart = () => {
   const dispatch = useDispatch();
   const navigate = useNavigate();
@@ -34,13 +41,14 @@ const Cart = () => {
   const [addressTown, setAddressTown] = useState('');
   const [selectedPickupLocation, setSelectedPickupLocation] = useState(null);
   const [termsAccepted, setTermsAccepted] = useState(false);
-  const [customerEmail, setCustomerEmail] = useState('');
+  const customerEmail = '';
   const [processingPayment, setProcessingPayment] = useState(false);
   const [paymentError, setPaymentError] = useState('');
   const [showTermsModal, setShowTermsModal] = useState(false);
   const [showPaymentSourceModal, setShowPaymentSourceModal] = useState(false);
-  const [pendingPaymentData, setPendingPaymentData] = useState(null);
-  const [paymentSourceMode, setPaymentSourceMode] = useState('all');
+  const [pendingPaymentData] = useState(null);
+  const [paymentSourceMode] = useState('all');
+  const [hasActiveSBOrder, setHasActiveSBOrder] = useState(false);
 
   // Auth modal states
   const [showAuthModal, setShowAuthModal] = useState(false);
@@ -50,7 +58,10 @@ const Cart = () => {
     fullName: '',
     email: '',
     phone: '',
+    streetAddress: '',
     state: '',
+    lga: '',
+    town: '',
     password: '',
     referralCode: ''
   });
@@ -58,6 +69,7 @@ const Cart = () => {
     phone: '',
     password: ''
   });
+  const [authValidationError, setAuthValidationError] = useState('');
 
   // Close auth modal when user logs in
   useEffect(() => {
@@ -92,6 +104,7 @@ const Cart = () => {
   useEffect(() => {
     if (!showAuthModal) {
       dispatch(clearError());
+      setAuthValidationError('');
     }
   }, [showAuthModal, dispatch]);
 
@@ -101,7 +114,24 @@ const Cart = () => {
     }
   }, [dispatch, isAuthenticated]);
 
+  useEffect(() => {
+    if (!isAuthenticated) {
+      setHasActiveSBOrder(false);
+      return;
+    }
+
+    axios.get(
+      `${API_URL}/api/ecommerce/orders/active`,
+      { headers: getAuthHeader() }
+    ).then((response) => {
+      setHasActiveSBOrder(Boolean(response.data?.hasActiveOrder));
+    }).catch(() => {
+      setHasActiveSBOrder(false);
+    });
+  }, [isAuthenticated]);
+
   const handleLogin = () => {
+    setAuthValidationError('');
     if (loginForm.phone && loginForm.password) {
       dispatch(loginRequest({
         phone: loginForm.phone,
@@ -111,6 +141,16 @@ const Cart = () => {
   };
 
   const handleSignup = () => {
+    setAuthValidationError('');
+    if (!signupForm.fullName.trim() || !signupForm.phone.trim() || !signupForm.password) {
+      setAuthValidationError('Full name, phone number, and password are required');
+      return;
+    }
+    if (signupForm.password.length < 6) {
+      setAuthValidationError('Password must be at least 6 characters');
+      return;
+    }
+
     if (signupForm.fullName && signupForm.phone && signupForm.password) {
       const [firstName, ...lastNameParts] = signupForm.fullName.split(' ');
       const lastName = lastNameParts.join(' ') || firstName;
@@ -120,7 +160,7 @@ const Cart = () => {
         lastName,
         phone: signupForm.phone,
         email: signupForm.email || '',
-        address: signupForm.state || '',
+        address: formatAddress(signupForm),
         password: signupForm.password,
         referralCode: signupForm.referralCode || ''
       }));
@@ -162,6 +202,17 @@ const Cart = () => {
   };
 
   const walletBalance = Number(walletAccount?.availableBalance || 0);
+  const savedCustomerAddress = String(customer?.address || '').trim();
+  const typedHomeDeliveryAddress = formatAddress({
+    streetAddress: deliveryAddress,
+    town: addressTown,
+    lga: addressLGA,
+    state: addressState,
+  });
+  const homeDeliveryAddress = savedCustomerAddress || typedHomeDeliveryAddress;
+  const hasDeliveryDestination = deliveryMethod === 'pickup'
+    ? Boolean(selectedPickupLocation)
+    : Boolean(homeDeliveryAddress);
 
   const submitPayment = useCallback((paymentData) => {
     setProcessingPayment(true);
@@ -204,27 +255,31 @@ const Cart = () => {
       );
 
       if (activeResponse.data?.hasActiveOrder) {
-        if (paymentData.paymentType === 'installment') {
-          setPaymentSourceMode('bankOnly');
-          setProcessingPayment(false);
-          submitPayment({ ...paymentData, paymentSource: 'bank' });
-          return;
-        }
+        const addResponse = await axios.post(
+          `${API_URL}/api/ecommerce/orders/active/items`,
+          paymentData,
+          { headers: getAuthHeader() }
+        );
+        const orderNumber = addResponse.data?.order?.orderNumber;
+        dispatch(clearCartRequest());
+        setShowPaymentSourceModal(false);
+        setShowPaymentModal(false);
+        navigate(orderNumber ? `/orders?orderNumber=${orderNumber}` : '/orders');
+        return;
+      }
 
-        setPendingPaymentData(paymentData);
-        setPaymentSourceMode('existingOrder');
-        setShowPaymentSourceModal(true);
+      if (Number(paymentData.amountToCharge || 0) <= 0) {
+        setPaymentError('Please enter the amount you want to pay now');
         setProcessingPayment(false);
         return;
       }
 
-      setProcessingPayment(false);
       submitPayment({ ...paymentData, paymentSource: 'bank' });
     } catch (error) {
       setPaymentError(error.response?.data?.message || 'Unable to prepare checkout. Please try again.');
       setProcessingPayment(false);
     }
-  }, [submitPayment]);
+  }, [dispatch, navigate, submitPayment]);
 
   const handleBankPayment = useCallback(() => {
     if (!pendingPaymentData) return;
@@ -265,39 +320,49 @@ const Cart = () => {
       return;
     }
 
+    setProcessingPayment(true);
+    setPaymentError('');
+
+    const email = String(customerEmail || customer?.email || '').trim();
     // Validate email format only if provided
-    if (customerEmail && (!customerEmail.includes('@') || !customerEmail.includes('.'))) {
+    if (email && (!email.includes('@') || !email.includes('.'))) {
+      setProcessingPayment(false);
       setPaymentError('Please provide a valid email address');
       return;
     }
 
     if (!deliveryMethod) {
+      setProcessingPayment(false);
       setPaymentError('Please select a delivery method');
       return;
     }
 
-    if (deliveryMethod === 'home' && !deliveryAddress) {
+    if (deliveryMethod === 'home' && !homeDeliveryAddress) {
+      setProcessingPayment(false);
       setPaymentError('Please enter your delivery address');
       return;
     }
 
     if (deliveryMethod === 'pickup' && !selectedPickupLocation) {
+      setProcessingPayment(false);
       setPaymentError('Please select a pickup location');
       return;
     }
 
-    const amountToPay = Number(firstPaymentAmount);
-    if (!Number.isFinite(amountToPay) || amountToPay <= 0) {
+    const amountToPay = hasActiveSBOrder ? 0 : Number(firstPaymentAmount);
+    if (!hasActiveSBOrder && (!Number.isFinite(amountToPay) || amountToPay <= 0)) {
+      setProcessingPayment(false);
       setPaymentError('Please enter the amount you want to pay now');
       return;
     }
-    if (amountToPay > Number(totalAmount || 0)) {
+    if (!hasActiveSBOrder && amountToPay > Number(totalAmount || 0)) {
+      setProcessingPayment(false);
       setPaymentError(`First payment cannot exceed ₦${Number(totalAmount || 0).toLocaleString()}`);
       return;
     }
 
     const shippingAddress = deliveryMethod === 'home'
-      ? `${deliveryAddress}${addressTown ? ', ' + addressTown : ''}${addressLGA ? ', ' + addressLGA : ''}${addressState ? ', ' + addressState : ''}`
+      ? homeDeliveryAddress
       : `PICKUP: ${selectedPickupLocation.name} - ${selectedPickupLocation.address}`;
 
     const paymentData = {
@@ -307,18 +372,18 @@ const Cart = () => {
       initialPaymentAmount: amountToPay,
       amountToCharge: amountToPay,
       shippingAddress,
-      shippingCity: deliveryMethod === 'home' ? addressLGA : selectedPickupLocation?.area || '',
-      shippingState: deliveryMethod === 'home' ? addressState : 'Lagos',
+      shippingCity: deliveryMethod === 'home' ? (savedCustomerAddress ? '' : addressLGA) : selectedPickupLocation?.area || '',
+      shippingState: deliveryMethod === 'home' ? (savedCustomerAddress ? '' : addressState) : 'Lagos',
       customerPhone: customer?.phone,
-      customerEmail: customerEmail,
+      customerEmail: email,
       accountNumber: customer?.phone,
       callbackUrl: `${window.location.origin}/payment/verify`,
     };
 
     openPaymentSourceModal(paymentData);
   }, [
-    isAuthenticated, customerEmail, deliveryMethod, deliveryAddress, addressState,
-    addressLGA, addressTown, selectedPickupLocation, customer, firstPaymentAmount, totalAmount, openPaymentSourceModal
+    isAuthenticated, customerEmail, deliveryMethod, homeDeliveryAddress, savedCustomerAddress, addressState,
+    addressLGA, selectedPickupLocation, customer, firstPaymentAmount, totalAmount, hasActiveSBOrder, openPaymentSourceModal
   ]);
 
   // Handle outright payment (Buy Now, Once)
@@ -328,29 +393,37 @@ const Cart = () => {
       return;
     }
 
+    setProcessingPayment(true);
+    setPaymentError('');
+
+    const email = String(customerEmail || customer?.email || '').trim();
     // Validate email format only if provided
-    if (customerEmail && (!customerEmail.includes('@') || !customerEmail.includes('.'))) {
+    if (email && (!email.includes('@') || !email.includes('.'))) {
+      setProcessingPayment(false);
       setPaymentError('Please provide a valid email address');
       return;
     }
 
     if (!deliveryMethod) {
+      setProcessingPayment(false);
       setPaymentError('Please select a delivery method');
       return;
     }
 
-    if (deliveryMethod === 'home' && !deliveryAddress) {
+    if (deliveryMethod === 'home' && !homeDeliveryAddress) {
+      setProcessingPayment(false);
       setPaymentError('Please enter your delivery address');
       return;
     }
 
     if (deliveryMethod === 'pickup' && !selectedPickupLocation) {
+      setProcessingPayment(false);
       setPaymentError('Please select a pickup location');
       return;
     }
 
     const shippingAddress = deliveryMethod === 'home'
-      ? `${deliveryAddress}${addressTown ? ', ' + addressTown : ''}${addressLGA ? ', ' + addressLGA : ''}${addressState ? ', ' + addressState : ''}`
+      ? homeDeliveryAddress
       : `PICKUP: ${selectedPickupLocation.name} - ${selectedPickupLocation.address}`;
 
     const paymentData = {
@@ -358,10 +431,10 @@ const Cart = () => {
       installmentFrequency: null,
       installmentDuration: 1,
       shippingAddress,
-      shippingCity: deliveryMethod === 'home' ? addressLGA : selectedPickupLocation?.area || '',
-      shippingState: deliveryMethod === 'home' ? addressState : 'Lagos',
+      shippingCity: deliveryMethod === 'home' ? (savedCustomerAddress ? '' : addressLGA) : selectedPickupLocation?.area || '',
+      shippingState: deliveryMethod === 'home' ? (savedCustomerAddress ? '' : addressState) : 'Lagos',
       customerPhone: customer?.phone,
-      customerEmail: customerEmail,
+      customerEmail: email,
       accountNumber: customer?.phone,
       callbackUrl: `${window.location.origin}/payment/verify`,
       amountToCharge: totalAmount,
@@ -369,8 +442,8 @@ const Cart = () => {
 
     openPaymentSourceModal(paymentData);
   }, [
-    isAuthenticated, customerEmail, deliveryMethod, deliveryAddress, addressState,
-    addressLGA, addressTown, selectedPickupLocation, customer, totalAmount, openPaymentSourceModal
+    isAuthenticated, customerEmail, deliveryMethod, homeDeliveryAddress, savedCustomerAddress, addressState,
+    addressLGA, selectedPickupLocation, customer, totalAmount, openPaymentSourceModal
   ]);
 
   // Empty cart view
@@ -620,22 +693,30 @@ const Cart = () => {
                     <span className="text-gray-600">Cart total</span>
                     <span className="font-semibold">₦{totalAmount?.toLocaleString()}</span>
                   </div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Amount to pay now</label>
-                  <input
-                    type="number"
-                    min="1"
-                    max={totalAmount}
-                    value={firstPaymentAmount}
-                    onChange={(e) => setFirstPaymentAmount(e.target.value)}
-                    placeholder="Enter first payment amount"
-                    className="w-full px-4 py-3 border border-orange-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-orange-500"
-                  />
-                  <p className="text-xs text-gray-500 mt-2">
-                    Remaining after this payment: ₦{Math.max(0, Number(totalAmount || 0) - Number(firstPaymentAmount || 0)).toLocaleString()}
-                  </p>
-                  <p className="text-xs text-gray-500 mt-1">
-                    Continue paying any amount from My Orders. Pickup or delivery is available after full payment.
-                  </p>
+                  {hasActiveSBOrder ? (
+                    <p className="text-xs text-gray-600">
+                      These products will be added to your existing SB order. You can pay from your order wallet in My Orders.
+                    </p>
+                  ) : (
+                    <>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Amount to pay now</label>
+                      <input
+                        type="number"
+                        min="1"
+                        max={totalAmount}
+                        value={firstPaymentAmount}
+                        onChange={(e) => setFirstPaymentAmount(e.target.value)}
+                        placeholder="Enter first payment amount"
+                        className="w-full px-4 py-3 border border-orange-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-orange-500"
+                      />
+                      <p className="text-xs text-gray-500 mt-2">
+                        Remaining after this payment: ₦{Math.max(0, Number(totalAmount || 0) - Number(firstPaymentAmount || 0)).toLocaleString()}
+                      </p>
+                      <p className="text-xs text-gray-500 mt-1">
+                        Continue paying any amount from My Orders. Pickup or delivery is available after full payment.
+                      </p>
+                    </>
+                  )}
                 </div>
               )}
 
@@ -650,7 +731,7 @@ const Cart = () => {
               )}
 
               {/* Delivery Method Selection - shown for both payment types */}
-              {((paymentType === 'installment' && Number(firstPaymentAmount) > 0) || paymentType === 'outright') && (
+              {((paymentType === 'installment' && (hasActiveSBOrder || Number(firstPaymentAmount) > 0)) || paymentType === 'outright') && (
                 <div className="mb-4">
                   <p className="text-sm font-medium text-gray-700 mb-2">Delivery method</p>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
@@ -680,49 +761,56 @@ const Cart = () => {
 
               {/* Home Delivery Address Form */}
               {deliveryMethod === 'home' && (
-                <div className="space-y-3 mb-4">
-                  <input
-                    type="text"
-                    value={deliveryAddress}
-                    onChange={(e) => setDeliveryAddress(e.target.value)}
-                    placeholder="House number, Street name..."
-                    className="w-full px-4 py-3 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-orange-500"
-                  />
-                  <select
-                    value={addressState}
-                    onChange={(e) => { setAddressState(e.target.value); setAddressLGA(''); setAddressTown(''); }}
-                    className="w-full px-4 py-3 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-orange-500"
-                  >
-                    <option value="">Select State</option>
-                    {getStates().map((state) => (
-                      <option key={state} value={state}>{state}</option>
-                    ))}
-                  </select>
-                  {addressState && (
+                savedCustomerAddress ? (
+                  <div className="mb-4 rounded-lg bg-gray-50 p-3">
+                    <p className="text-sm font-medium text-gray-900">Delivery Address</p>
+                    <p className="mt-1 text-sm text-gray-700">{savedCustomerAddress}</p>
+                  </div>
+                ) : (
+                  <div className="space-y-3 mb-4">
+                    <input
+                      type="text"
+                      value={deliveryAddress}
+                      onChange={(e) => setDeliveryAddress(e.target.value)}
+                      placeholder="House number, Street name..."
+                      className="w-full px-4 py-3 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-orange-500"
+                    />
                     <select
-                      value={addressLGA}
-                      onChange={(e) => { setAddressLGA(e.target.value); setAddressTown(''); }}
+                      value={addressState}
+                      onChange={(e) => { setAddressState(e.target.value); setAddressLGA(''); setAddressTown(''); }}
                       className="w-full px-4 py-3 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-orange-500"
                     >
-                      <option value="">Select LGA</option>
-                      {getLGAs(addressState).map((lga) => (
-                        <option key={lga} value={lga}>{lga}</option>
+                      <option value="">Select State</option>
+                      {getStates().map((state) => (
+                        <option key={state} value={state}>{state}</option>
                       ))}
                     </select>
-                  )}
-                  {addressLGA && (
-                    <select
-                      value={addressTown}
-                      onChange={(e) => setAddressTown(e.target.value)}
-                      className="w-full px-4 py-3 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-orange-500"
-                    >
-                      <option value="">Select Town</option>
-                      {getTowns(addressState, addressLGA).map((town) => (
-                        <option key={town} value={town}>{town}</option>
-                      ))}
-                    </select>
-                  )}
-                </div>
+                    {addressState && (
+                      <select
+                        value={addressLGA}
+                        onChange={(e) => { setAddressLGA(e.target.value); setAddressTown(''); }}
+                        className="w-full px-4 py-3 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-orange-500"
+                      >
+                        <option value="">Select LGA</option>
+                        {getLGAs(addressState).map((lga) => (
+                          <option key={lga} value={lga}>{lga}</option>
+                        ))}
+                      </select>
+                    )}
+                    {addressLGA && (
+                      <select
+                        value={addressTown}
+                        onChange={(e) => setAddressTown(e.target.value)}
+                        className="w-full px-4 py-3 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-orange-500"
+                      >
+                        <option value="">Select Town</option>
+                        {getTowns(addressState, addressLGA).map((town) => (
+                          <option key={town} value={town}>{town}</option>
+                        ))}
+                      </select>
+                    )}
+                  </div>
+                )
               )}
 
               {/* Pickup Location Selection */}
@@ -747,7 +835,7 @@ const Cart = () => {
               )}
 
               {/* Terms & Conditions */}
-              {deliveryMethod && (deliveryMethod === 'pickup' ? selectedPickupLocation : deliveryAddress) && (
+              {deliveryMethod && hasDeliveryDestination && (
                 <div className="mb-4">
                   <div className="flex items-start gap-2">
                     <button
@@ -755,127 +843,43 @@ const Cart = () => {
                         if (!termsAccepted) setShowTermsModal(true);
                         else setTermsAccepted(false);
                       }}
-                      className={`w-5 h-5 rounded flex items-center justify-center border-2 transition-colors ${
-                        termsAccepted ? 'bg-orange-500 border-orange-500' : 'border-gray-300'
+                      className={`w-6 h-6 rounded flex items-center justify-center border-[3px] transition-colors ${
+                        termsAccepted ? 'bg-orange-500 border-orange-500' : 'border-orange-500 bg-orange-50 hover:bg-orange-100'
                       }`}
                     >
                       {termsAccepted && (
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
                           <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
                         </svg>
                       )}
                     </button>
-                    <span className="text-sm text-gray-700">
-                      I accept SureBank <button onClick={() => setShowTermsModal(true)} className="text-orange-500">Terms and Conditions</button>
+                    <span className="text-sm font-semibold text-orange-600">
+                      I accept SureBank <button onClick={() => setShowTermsModal(true)} className="text-orange-600">Terms and Conditions</button>
                     </span>
                   </div>
                 </div>
               )}
 
-              {/* Payment Summary & Email */}
-              {termsAccepted && (
-                <>
-                  {/* Installment Payment Summary */}
-                  {paymentType === 'installment' && (
-                    <div className="bg-gray-100 rounded-lg p-3 mb-4">
-                      <div className="flex flex-wrap items-center justify-center gap-2">
-                        <span className="px-3 py-1 bg-white rounded-full text-xs text-gray-700 border">
-                          Flexible payment
-                        </span>
-                        <span className="px-3 py-1 bg-white rounded-full text-xs text-gray-700 border">
-                          Pay any amount anytime
-                        </span>
-                        <span className="px-3 py-1 bg-white rounded-full text-xs text-orange-500 font-semibold border border-orange-200">
-                          ₦{Number(firstPaymentAmount || 0).toLocaleString()} due now
-                        </span>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Outright Payment Summary */}
-                  {paymentType === 'outright' && (
-                    <div className="bg-gray-100 rounded-lg p-3 mb-4">
-                      <div className="flex flex-wrap items-center justify-center gap-2">
-                        <span className="px-3 py-1 bg-white rounded-full text-xs text-gray-700 border">
-                          One-time payment
-                        </span>
-                        <span className="px-3 py-1 bg-white rounded-full text-xs text-green-600 font-semibold border border-green-200">
-                          ₦{totalAmount?.toLocaleString()} due now
-                        </span>
-                      </div>
-                    </div>
-                  )}
-
-                  <div className="mb-4">
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Email Address</label>
-                    <input
-                      type="email"
-                      value={customerEmail}
-                      onChange={(e) => setCustomerEmail(e.target.value)}
-                      placeholder="example@email.com"
-                      className="w-full px-4 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-orange-500"
-                    />
-                    <p className="text-xs text-gray-500 mt-1">For payment receipt (if provided)</p>
-                  </div>
-
-                  {paymentError && (
-                    <div className="mb-4 p-3 bg-red-100 text-red-700 rounded-lg text-sm">
-                      {paymentError}
-                    </div>
-                  )}
-
-                  {/* Installment Payment Button */}
-                  {paymentType === 'installment' && (
-                    <button
-                      onClick={handleInstallmentPayment}
-                      disabled={processingPayment || paymentLoading}
-                      className={`w-full py-3 rounded-full font-medium transition-colors ${
-                        processingPayment || paymentLoading
-                          ? 'bg-gray-400 text-white cursor-not-allowed'
-                          : 'bg-orange-500 hover:bg-orange-600 text-white'
-                      }`}
-                    >
-                      {processingPayment || paymentLoading ? (
-                        <span className="flex items-center justify-center gap-2">
-                          <svg className="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                          </svg>
-                          Processing...
-                        </span>
-                      ) : (
-                        'Start pay small small'
-                      )}
-                    </button>
-                  )}
-
-                  {/* Outright Payment Button */}
-                  {paymentType === 'outright' && (
-                    <button
-                      onClick={handleOutrightPayment}
-                      disabled={processingPayment || paymentLoading}
-                      className={`w-full py-3 rounded-full font-medium transition-colors ${
-                        processingPayment || paymentLoading
-                          ? 'bg-gray-400 text-white cursor-not-allowed'
-                          : 'bg-green-500 hover:bg-green-600 text-white'
-                      }`}
-                    >
-                      {processingPayment || paymentLoading ? (
-                        <span className="flex items-center justify-center gap-2">
-                          <svg className="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                          </svg>
-                          Processing...
-                        </span>
-                      ) : (
-                        'Pay Now'
-                      )}
-                    </button>
-                  )}
-                </>
+              {paymentError && (
+                <div className="mb-4 p-3 bg-red-100 text-red-700 rounded-lg text-sm">
+                  {paymentError}
+                </div>
               )}
             </div>
+          </div>
+        </div>
+      )}
+
+      {processingPayment && !showPaymentSourceModal && !showTermsModal && (
+        <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/50 p-4">
+          <div className="w-full max-w-xs rounded-2xl bg-white p-6 text-center shadow-2xl">
+            <div className="mx-auto h-12 w-12 animate-spin rounded-full border-4 border-orange-100 border-t-orange-500"></div>
+            <p className="mt-4 text-sm font-semibold text-gray-900">
+              {hasActiveSBOrder ? 'Adding product to your order...' : 'Preparing payment...'}
+            </p>
+            <p className="mt-1 text-xs text-gray-500">
+              {hasActiveSBOrder ? 'Please wait while we take you to My Orders.' : 'Please wait while we open your payment page.'}
+            </p>
           </div>
         </div>
       )}
@@ -1005,10 +1009,21 @@ const Cart = () => {
             </div>
             <div className="p-4 border-t">
               <button
-                onClick={() => { setTermsAccepted(true); setShowTermsModal(false); }}
-                className="w-full py-3 bg-orange-500 hover:bg-orange-600 text-white rounded-full font-medium"
+                onClick={() => {
+                  setProcessingPayment(true);
+                  setPaymentError('');
+                  setTermsAccepted(true);
+                  setShowTermsModal(false);
+                  if (paymentType === 'installment') {
+                    handleInstallmentPayment();
+                  } else if (paymentType === 'outright') {
+                    handleOutrightPayment();
+                  }
+                }}
+                disabled={processingPayment || paymentLoading}
+                className="w-full py-3 bg-orange-500 hover:bg-orange-600 text-white rounded-full font-medium disabled:cursor-not-allowed disabled:bg-gray-400"
               >
-                I Accept
+                {processingPayment || paymentLoading ? 'Processing...' : 'I Accept'}
               </button>
             </div>
           </div>
@@ -1073,9 +1088,21 @@ const Cart = () => {
                         onChange={(e) => setSignupForm({ ...signupForm, phone: e.target.value })}
                         className="w-full px-4 py-3 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
                       />
+                      <input
+                        type="text"
+                        placeholder="House number, Street name..."
+                        value={signupForm.streetAddress}
+                        onChange={(e) => setSignupForm({ ...signupForm, streetAddress: e.target.value })}
+                        className="w-full px-4 py-3 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                      />
                       <select
                         value={signupForm.state}
-                        onChange={(e) => setSignupForm({ ...signupForm, state: e.target.value })}
+                        onChange={(e) => setSignupForm({
+                          ...signupForm,
+                          state: e.target.value,
+                          lga: '',
+                          town: '',
+                        })}
                         className="w-full px-4 py-3 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent text-gray-500"
                       >
                         <option value="">Select State</option>
@@ -1083,6 +1110,34 @@ const Cart = () => {
                           <option key={state} value={state}>{state}</option>
                         ))}
                       </select>
+                      {signupForm.state && (
+                        <select
+                          value={signupForm.lga}
+                          onChange={(e) => setSignupForm({
+                            ...signupForm,
+                            lga: e.target.value,
+                            town: '',
+                          })}
+                          className="w-full px-4 py-3 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent text-gray-500"
+                        >
+                          <option value="">Select LGA</option>
+                          {getLGAs(signupForm.state).map((lga) => (
+                            <option key={lga} value={lga}>{lga}</option>
+                          ))}
+                        </select>
+                      )}
+                      {signupForm.lga && (
+                        <select
+                          value={signupForm.town}
+                          onChange={(e) => setSignupForm({ ...signupForm, town: e.target.value })}
+                          className="w-full px-4 py-3 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent text-gray-500"
+                        >
+                          <option value="">Select Town</option>
+                          {getTowns(signupForm.state, signupForm.lga).map((town) => (
+                            <option key={town} value={town}>{town}</option>
+                          ))}
+                        </select>
+                      )}
                       <div className="relative">
                         <input
                           type={showPassword ? 'text' : 'password'}
@@ -1108,6 +1163,7 @@ const Cart = () => {
                           )}
                         </button>
                       </div>
+                      <p className="text-xs text-gray-500">At least 6 characters</p>
                     </div>
 
                     <button
@@ -1190,9 +1246,9 @@ const Cart = () => {
               </div>
 
               {/* Error Message */}
-              {authError && (
+              {(authError || authValidationError) && (
                 <div className="mt-3 p-3 bg-red-100 text-red-700 rounded-lg text-sm">
-                  {authError}
+                  {authError || authValidationError}
                 </div>
               )}
 
