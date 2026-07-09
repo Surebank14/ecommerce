@@ -30,9 +30,11 @@ const WalletPaymentVerify = () => {
       pendingAutoPay = null;
     }
 
-    const finish = (orderNumber = '') => {
+    const finish = (orderNumber = '', message = 'Wallet deposit successful. Your wallet balance has been updated.') => {
       localStorage.removeItem('pendingWalletAutoPay');
-      navigate(orderNumber ? `/orders?orderNumber=${orderNumber}` : '/orders');
+      navigate(orderNumber ? `/orders?orderNumber=${orderNumber}` : '/orders', {
+        state: { message }
+      });
     };
 
     if (!pendingAutoPay?.orderNumber || !pendingAutoPay?.itemId) {
@@ -41,7 +43,7 @@ const WalletPaymentVerify = () => {
     }
 
     if (lastFundingResult.autoPaidOrder && !lastFundingResult.autoPayError) {
-      finish(pendingAutoPay.orderNumber);
+      finish(pendingAutoPay.orderNumber, 'Wallet deposit successful and your product payment has been completed.');
       return;
     }
 
@@ -54,7 +56,7 @@ const WalletPaymentVerify = () => {
           {},
           { headers: getAuthHeader() }
         );
-        finish(pendingAutoPay.orderNumber);
+        finish(pendingAutoPay.orderNumber, 'Wallet deposit successful and your product payment has been completed.');
       } catch (error) {
         setAutoPayError(error.response?.data?.message || lastFundingResult.autoPayError || 'Wallet funded, but product payment could not be completed.');
       } finally {
@@ -106,7 +108,9 @@ const WalletPaymentVerify = () => {
           <h2 className="text-xl font-semibold text-gray-900 mb-2">Wallet Funded</h2>
           <p className="text-gray-600 mb-6">{autoPayError}</p>
           <button
-            onClick={() => navigate('/orders')}
+            onClick={() => navigate('/orders', {
+              state: { error: autoPayError }
+            })}
             className="px-6 py-2 bg-orange-500 hover:bg-orange-600 text-white rounded-full text-sm font-medium"
           >
             Back to Orders

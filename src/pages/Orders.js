@@ -85,6 +85,7 @@ const Orders = () => {
   const [depositAmount, setDepositAmount] = useState('');
   const [payingItemId, setPayingItemId] = useState('');
   const [pageError, setPageError] = useState('');
+  const [pageMessage, setPageMessage] = useState('');
   const [showTransactionHistory, setShowTransactionHistory] = useState(false);
   const [replaceItem, setReplaceItem] = useState(null);
   const [replacementProductId, setReplacementProductId] = useState('');
@@ -99,6 +100,16 @@ const Orders = () => {
       dispatch(fetchWalletRequest());
     }
   }, [dispatch, isAuthenticated]);
+
+  useEffect(() => {
+    const message = location.state?.message;
+    const error = location.state?.error;
+    if (message) setPageMessage(message);
+    if (error) setPageError(error);
+    if (message || error) {
+      window.history.replaceState({}, document.title, `${location.pathname}${location.search}`);
+    }
+  }, [location.pathname, location.search, location.state]);
 
   const activeOrder = useMemo(() => {
     const activeStatuses = new Set(['pending', 'confirmed', 'paid', 'partially_paid', 'processing', 'shipped', 'delivered']);
@@ -261,6 +272,7 @@ const Orders = () => {
   const handleFundWallet = (event) => {
     event.preventDefault();
     setPageError('');
+    setPageMessage('');
 
     dispatch(initializeWalletFundingRequest({
       fundingData: {
@@ -270,6 +282,9 @@ const Orders = () => {
       onSuccess: (data) => {
         window.location.href = data.authorization_url;
       },
+      onError: (error) => {
+        setPageError(error || 'Failed to initialize wallet deposit.');
+      },
     }));
   };
 
@@ -277,10 +292,12 @@ const Orders = () => {
     if (!activeOrder?.orderNumber || !item?._id) return;
 
     setPageError('');
+    setPageMessage('');
     setPayingItemId(item._id);
     const due = Math.max(0, Number(item.subtotal || 0) - Number(item.paidAmount || 0));
     if (due <= 0) {
       setPayingItemId('');
+      setPageMessage('This product has already been paid for.');
       return;
     }
 
@@ -304,6 +321,7 @@ const Orders = () => {
         onError: (error) => {
           setPayingItemId('');
           setPageError(error || 'Failed to initialize wallet deposit');
+          setPageMessage('');
         },
       }));
       return;
@@ -317,6 +335,7 @@ const Orders = () => {
       );
       dispatch(fetchOrdersRequest());
       dispatch(fetchWalletRequest());
+      setPageMessage(`Payment successful for ${item.productName}.`);
     } catch (error) {
       setPageError(error.response?.data?.message || 'Failed to pay for product from wallet');
     } finally {
@@ -325,6 +344,8 @@ const Orders = () => {
   };
 
   const openReplaceModal = (item) => {
+    setPageError('');
+    setPageMessage('');
     setReplaceItem(item);
     setReplacementProductId('');
     setReplacementVariationId('');
@@ -364,6 +385,8 @@ const Orders = () => {
 
     setReplaceLoading(true);
     setReplaceError('');
+    setPageError('');
+    setPageMessage('');
 
     try {
       await axios.put(
@@ -377,6 +400,7 @@ const Orders = () => {
       closeReplaceModal();
       dispatch(fetchOrdersRequest());
       dispatch(fetchWalletRequest());
+      setPageMessage(`Product changed successfully from ${replaceItem.productName}.`);
     } catch (error) {
       setReplaceError(error.response?.data?.message || 'Failed to change product');
     } finally {
@@ -467,6 +491,12 @@ const Orders = () => {
             <p className="mt-0.5 text-sm font-bold text-slate-900 sm:mt-1 sm:text-lg">{activeOrder.SBAccountNumber || 'Pending'}</p>
           </div>
         </div>
+
+        {pageMessage && (
+          <div className="mb-3 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs font-medium text-emerald-700 sm:mb-5 sm:rounded-2xl sm:px-4 sm:py-3 sm:text-sm">
+            {pageMessage}
+          </div>
+        )}
 
         {(pageError || fundingError) && (
           <div className="mb-3 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-medium text-rose-700 sm:mb-5 sm:rounded-2xl sm:px-4 sm:py-3 sm:text-sm">

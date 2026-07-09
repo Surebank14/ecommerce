@@ -21,7 +21,9 @@ const PaymentVerify = () => {
 
   useEffect(() => {
     if (paymentVerified && currentOrder) {
-      navigate(`/orders?orderNumber=${currentOrder.orderNumber}`);
+      navigate(`/orders?orderNumber=${currentOrder.orderNumber}`, {
+        state: { message: 'Payment successful. Your order has been updated.' }
+      });
     }
   }, [paymentVerified, currentOrder, navigate]);
 
