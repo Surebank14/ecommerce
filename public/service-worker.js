@@ -1,4 +1,4 @@
-const CACHE_NAME = 'surebank-shop-v1';
+const CACHE_NAME = 'surebank-shop-v2';
 const ASSETS_TO_CACHE = [
   '/',
   '/manifest.json',

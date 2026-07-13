@@ -3,6 +3,7 @@ const REMOTE_API_URL = 'https://surebank-backend.onrender.com';
 const VERCEL_PROXY_API_URL = '';
 
 const isLocalhostUrl = (value = '') => /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?/i.test(value);
+const isRelativeUrl = (value = '') => value.startsWith('/');
 const isLocalBrowser = () => {
   if (typeof window === 'undefined') return false;
   return ['localhost', '127.0.0.1'].includes(window.location.hostname);
@@ -32,6 +33,10 @@ const getConfiguredApiUrl = () => {
 
   if (!isLocalBrowser() && isLocalhostUrl(configuredUrl)) {
     return getDefaultApiUrl();
+  }
+
+  if (!isLocalBrowser() && !isVercelBrowser() && isRelativeUrl(configuredUrl)) {
+    return REMOTE_API_URL;
   }
 
   return configuredUrl;
