@@ -118,7 +118,7 @@ const getItemFulfillmentDisplay = (item = {}) => {
   if (isPaid) {
     return {
       status: 'processing_order',
-      label: 'Processing Order',
+      label: 'Request submitted successfully',
     };
   }
 
