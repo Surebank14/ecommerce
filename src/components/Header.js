@@ -9,6 +9,7 @@ const Header = () => {
   const { isAuthenticated, customer } = useSelector((state) => state.auth);
   const { totalItems } = useSelector((state) => state.cart);
   const { categories } = useSelector((state) => state.products);
+  const categoryList = Array.isArray(categories) ? categories : [];
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [mobileCategoriesOpen, setMobileCategoriesOpen] = useState(false);
 
@@ -42,10 +43,10 @@ const Header = () => {
               <Link to="/products" className="text-gray-700 hover:text-primary-600">
                 Products
               </Link>
-              {categories.length > 0 && (
+              {categoryList.length > 0 && (
                 <div className="absolute left-0 mt-2 w-72 bg-white rounded-md shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50">
                   <div className="py-2 max-h-96 overflow-y-auto">
-                    {categories.map((category) => (
+                    {categoryList.map((category) => (
                       <div key={category._id} className="border-b border-gray-100 last:border-b-0">
                         <Link
                           to={`/products/category/${category._id}`}
@@ -164,7 +165,7 @@ const Header = () => {
                     <Link to="/products" className="block text-sm text-gray-700" onClick={handleMobileClose}>
                       All Products
                     </Link>
-                    {categories.map((category) => (
+                    {categoryList.map((category) => (
                       <div key={category._id} className="space-y-2">
                         <Link
                           to={`/products/category/${category._id}`}

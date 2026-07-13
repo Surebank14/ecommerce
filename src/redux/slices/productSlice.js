@@ -1,5 +1,13 @@
 import { createSlice } from '@reduxjs/toolkit';
 
+const normalizeListPayload = (payload) => {
+  if (Array.isArray(payload)) return payload;
+  if (Array.isArray(payload?.data)) return payload.data;
+  if (Array.isArray(payload?.categories)) return payload.categories;
+  if (Array.isArray(payload?.products)) return payload.products;
+  return [];
+};
+
 const initialState = {
   products: [],
   product: null,
@@ -26,7 +34,7 @@ const productSlice = createSlice({
       state.loading = false;
       state.productsLoading = false;
       state.productsLoaded = true;
-      state.products = action.payload;
+      state.products = normalizeListPayload(action.payload);
     },
     fetchProductsFailure: (state, action) => {
       state.loading = false;
@@ -57,7 +65,7 @@ const productSlice = createSlice({
     },
     fetchFeaturedProductsSuccess: (state, action) => {
       state.loading = false;
-      state.featuredProducts = action.payload;
+      state.featuredProducts = normalizeListPayload(action.payload);
     },
     fetchFeaturedProductsFailure: (state, action) => {
       state.loading = false;
@@ -68,7 +76,7 @@ const productSlice = createSlice({
     },
     fetchCategoriesSuccess: (state, action) => {
       state.loading = false;
-      state.categories = action.payload;
+      state.categories = normalizeListPayload(action.payload);
     },
     fetchCategoriesFailure: (state, action) => {
       state.loading = false;
