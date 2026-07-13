@@ -991,13 +991,7 @@ const ProductDetail = () => {
             <div className="mt-4 pt-4 border-t border-gray-200">
               <div className="flex items-center gap-2">
                 <button
-                  onClick={() => {
-                    if (!buyNowTermsAccepted) {
-                      setShowTermsModal(true);
-                    } else {
-                      setBuyNowTermsAccepted(false);
-                    }
-                  }}
+                  onClick={() => setBuyNowTermsAccepted((accepted) => !accepted)}
                   className={`w-6 h-6 rounded flex items-center justify-center border-[3px] transition-colors ${
                     buyNowTermsAccepted
                       ? 'bg-orange-500 border-orange-500'
@@ -1029,13 +1023,21 @@ const ProductDetail = () => {
             </div>
           )}
 
-          {/* Continue Button - Shows when terms not accepted */}
-          {deliveryMethod && (deliveryMethod === 'pickup' ? selectedPickupLocation : buyNowAddress) && !buyNowTermsAccepted && (
+          {deliveryMethod && (deliveryMethod === 'pickup' ? selectedPickupLocation : buyNowAddress) && (
             <button
-              onClick={() => setShowTermsModal(true)}
-              className="w-full mt-4 py-3 rounded-full text-sm font-medium transition-colors bg-gray-200 text-gray-500"
+              onClick={() => {
+                if (buyNowTermsAccepted) {
+                  handleBuyNowPayment();
+                }
+              }}
+              disabled={!buyNowTermsAccepted || processingPayment || paymentLoading}
+              className={`w-full mt-4 py-3 rounded-full text-sm font-medium transition-colors ${
+                buyNowTermsAccepted
+                  ? 'bg-orange-500 text-white hover:bg-orange-600'
+                  : 'bg-gray-200 text-gray-500'
+              } disabled:cursor-not-allowed disabled:opacity-80`}
             >
-              Accept terms to continue
+              {buyNowTermsAccepted ? (processingPayment || paymentLoading ? 'Creating...' : 'Create') : 'Accept terms to continue'}
             </button>
           )}
 
@@ -1110,13 +1112,7 @@ const ProductDetail = () => {
             <div className="mt-4 pt-4 border-t border-orange-200">
               <div className="flex items-center gap-2">
                 <button
-                  onClick={() => {
-                    if (!termsAccepted) {
-                      setShowTermsModal(true);
-                    } else {
-                      setTermsAccepted(false);
-                    }
-                  }}
+                  onClick={() => setTermsAccepted((accepted) => !accepted)}
                   className={`w-6 h-6 rounded flex items-center justify-center border-[3px] transition-colors ${
                     termsAccepted
                       ? 'bg-orange-500 border-orange-500'
@@ -1148,19 +1144,25 @@ const ProductDetail = () => {
             </div>
           )}
 
-          {/* Continue Button - Shows when terms not accepted or no address */}
           {(hasActiveSBOrder || Number(firstPaymentAmount) > 0) && (!deliveryAddress || !termsAccepted) && (
             <button
               onClick={() => {
                 if (!deliveryAddress) {
                   setShowAddressInput(true);
-                } else if (!termsAccepted) {
-                  setShowTermsModal(true);
                 }
               }}
               className="w-full mt-4 py-3 rounded-full text-sm font-medium transition-colors bg-gray-200 text-gray-500"
             >
               {!deliveryAddress ? 'Enter delivery address to continue' : 'Accept terms to continue'}
+            </button>
+          )}
+          {(hasActiveSBOrder || Number(firstPaymentAmount) > 0) && deliveryAddress && termsAccepted && (
+            <button
+              onClick={handlePaySmallSmall}
+              disabled={processingPayment || paymentLoading}
+              className="w-full mt-4 py-3 rounded-full bg-orange-500 text-sm font-medium text-white transition-colors hover:bg-orange-600 disabled:cursor-not-allowed disabled:bg-gray-400"
+            >
+              {processingPayment || paymentLoading ? 'Creating...' : 'Create'}
             </button>
           )}
         </div>

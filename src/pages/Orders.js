@@ -27,6 +27,7 @@ const getStatusPill = (status) => {
     paid: 'bg-emerald-100 text-emerald-700 border-emerald-200',
     partial: 'bg-amber-100 text-amber-700 border-amber-200',
     unpaid: 'bg-rose-100 text-rose-700 border-rose-200',
+    processing_order: 'bg-purple-100 text-purple-700 border-purple-200',
     delivered: 'bg-emerald-100 text-emerald-700 border-emerald-200',
     completed: 'bg-teal-100 text-teal-700 border-teal-200',
     pending: 'bg-slate-100 text-slate-700 border-slate-200',
@@ -43,9 +44,89 @@ const getSelectedOptionsText = (item) => {
     .join(' / ');
 };
 
+const getVariationLabel = (variation) => {
+  if (!variation) return '';
+  const optionValues = variation.optionValues && typeof variation.optionValues === 'object'
+    ? Object.values(variation.optionValues).filter(Boolean)
+    : [];
+  return optionValues.length > 0 ? optionValues.join(' / ') : variation.name;
+};
+
+const MobileVariationDropdown = ({ value, options, onChange }) => {
+  const [open, setOpen] = useState(false);
+  const selectedVariation = (options || []).find((variation) => variation._id === value);
+
+  return (
+    <div className="relative sm:hidden">
+      <button
+        type="button"
+        onClick={() => setOpen((current) => !current)}
+        className="flex w-full items-center justify-between rounded-2xl border border-slate-200 bg-white px-4 py-3 text-left text-sm"
+      >
+        <span className={selectedVariation ? 'font-bold text-slate-900' : 'text-slate-500'}>
+          {selectedVariation
+            ? `${getVariationLabel(selectedVariation)} - ${formatCurrency(selectedVariation.price)}`
+            : 'Select variation'}
+        </span>
+        <span className={`ml-3 text-xs transition-transform ${open ? 'rotate-180' : ''}`}>⌄</span>
+      </button>
+      {open && (
+        <div className="absolute left-0 right-0 top-[calc(100%+4px)] z-[70] max-h-56 overflow-y-auto rounded-2xl border border-slate-200 bg-white shadow-xl">
+          {(options || []).map((variation) => {
+            const selected = variation._id === value;
+            return (
+              <button
+                type="button"
+                key={variation._id}
+                onClick={() => {
+                  onChange(variation._id);
+                  setOpen(false);
+                }}
+                className={`block w-full border-b border-slate-100 px-4 py-3 text-left text-xs font-bold last:border-b-0 ${
+                  selected
+                    ? 'bg-emerald-50 text-emerald-800'
+                    : 'bg-white text-slate-700'
+                }`}
+              >
+                {getVariationLabel(variation)} - {formatCurrency(variation.price)}
+              </button>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+};
+
 const isCollected = (item) => ['delivered', 'completed'].includes(item?.fulfillmentStatus);
 const isActiveOrderItem = (item) => !isCollected(item);
 const lockedOrderStatuses = new Set(['delivered', 'completed', 'shipped', 'cancelled']);
+
+const getItemFulfillmentDisplay = (item = {}) => {
+  const fulfillmentStatus = item.fulfillmentStatus || 'pending';
+  if (['delivered', 'completed'].includes(fulfillmentStatus)) {
+    return {
+      status: fulfillmentStatus,
+      label: fulfillmentStatus,
+    };
+  }
+
+  const subtotal = Number(item.subtotal || 0);
+  const paidAmount = Number(item.paidAmount || 0);
+  const isPaid = item.paymentStatus === 'paid' || (subtotal > 0 && paidAmount >= subtotal);
+
+  if (isPaid) {
+    return {
+      status: 'processing_order',
+      label: 'Processing Order',
+    };
+  }
+
+  return {
+    status: fulfillmentStatus,
+    label: fulfillmentStatus || 'pending',
+  };
+};
 
 const getProductImage = (product) => (
   product?.images?.length ? resolveImageUrl(product.images[0]) : PRODUCT_FALLBACK_IMAGE
@@ -86,6 +167,7 @@ const Orders = () => {
   const [payingItemId, setPayingItemId] = useState('');
   const [pageError, setPageError] = useState('');
   const [pageMessage, setPageMessage] = useState('');
+  const [showMobileAlert, setShowMobileAlert] = useState(false);
   const [showTransactionHistory, setShowTransactionHistory] = useState(false);
   const [replaceItem, setReplaceItem] = useState(null);
   const [replacementProductId, setReplacementProductId] = useState('');
@@ -110,6 +192,12 @@ const Orders = () => {
       window.history.replaceState({}, document.title, `${location.pathname}${location.search}`);
     }
   }, [location.pathname, location.search, location.state]);
+
+  useEffect(() => {
+    if (pageMessage || pageError || fundingError) {
+      setShowMobileAlert(true);
+    }
+  }, [pageMessage, pageError, fundingError]);
 
   const activeOrder = useMemo(() => {
     const activeStatuses = new Set(['pending', 'confirmed', 'paid', 'partially_paid', 'processing', 'shipped', 'delivered']);
@@ -156,7 +244,16 @@ const Orders = () => {
   const replacementOrderTotal = replaceItem
     ? activeItemsTotalAmount - Number(replaceItem.subtotal || 0) + replacementSubtotal
     : activeItemsTotalAmount;
-  const replacementRemainingBalance = Math.max(0, replacementOrderTotal - activeItemsPaidAmount);
+  const replacePaidAmount = Number(replaceItem?.paidAmount || 0);
+  const otherItemsPaidAmount = Math.max(0, activeItemsPaidAmount - replacePaidAmount);
+  const walletAfterOldPaymentReversal = walletBalance + replacePaidAmount;
+  const replacementWillBePaid = replacementSubtotal > 0 && walletAfterOldPaymentReversal >= replacementSubtotal;
+  const replacementPaidAmount = replacementWillBePaid ? replacementSubtotal : 0;
+  const replacementProjectedPaidAmount = otherItemsPaidAmount + replacementPaidAmount;
+  const replacementRemainingBalance = Math.max(0, replacementOrderTotal - replacementProjectedPaidAmount);
+  const projectedWalletBalance = replacementWillBePaid
+    ? walletAfterOldPaymentReversal - replacementSubtotal
+    : walletAfterOldPaymentReversal;
   const filteredReplacementProducts = products.filter((product) => {
     const search = replacementSearch.trim().toLowerCase();
     const isSameProduct = product._id === replaceItem?.productId;
@@ -237,24 +334,27 @@ const Orders = () => {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
-                    {accountItems.map((item) => (
-                      <tr key={item._id || item.productName}>
-                        <td className="min-w-[220px] px-4 py-3 font-semibold text-slate-900">{item.productName}</td>
-                        <td className="px-4 py-3 text-slate-600">{Number(item.quantity || 1).toLocaleString()}</td>
-                        <td className="px-4 py-3 font-bold text-slate-900">{formatCurrency(item.subtotal)}</td>
-                        <td className="px-4 py-3 text-slate-600">{formatCurrency(item.paidAmount)}</td>
-                        <td className="px-4 py-3">
-                          <span className={`rounded-full border px-2.5 py-1 text-xs font-bold capitalize ${getStatusPill(item.paymentStatus)}`}>
-                            {item.paymentStatus || 'unpaid'}
-                          </span>
-                        </td>
-                        <td className="px-4 py-3">
-                          <span className={`rounded-full border px-2.5 py-1 text-xs font-bold capitalize ${getStatusPill(item.fulfillmentStatus)}`}>
-                            {item.fulfillmentStatus || 'pending'}
-                          </span>
-                        </td>
-                      </tr>
-                    ))}
+                    {accountItems.map((item) => {
+                      const fulfillmentDisplay = getItemFulfillmentDisplay(item);
+                      return (
+                        <tr key={item._id || item.productName}>
+                          <td className="min-w-[220px] px-4 py-3 font-semibold text-slate-900">{item.productName}</td>
+                          <td className="px-4 py-3 text-slate-600">{Number(item.quantity || 1).toLocaleString()}</td>
+                          <td className="px-4 py-3 font-bold text-slate-900">{formatCurrency(item.subtotal)}</td>
+                          <td className="px-4 py-3 text-slate-600">{formatCurrency(item.paidAmount)}</td>
+                          <td className="px-4 py-3">
+                            <span className={`rounded-full border px-2.5 py-1 text-xs font-bold capitalize ${getStatusPill(item.paymentStatus)}`}>
+                              {item.paymentStatus || 'unpaid'}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3">
+                            <span className={`rounded-full border px-2.5 py-1 text-xs font-bold ${getStatusPill(fulfillmentDisplay.status)}`}>
+                              {fulfillmentDisplay.label}
+                            </span>
+                          </td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>
@@ -408,6 +508,9 @@ const Orders = () => {
     }
   };
 
+  const alertText = pageError || fundingError || pageMessage;
+  const alertIsError = Boolean(pageError || fundingError);
+
   if (loading && !activeOrder) {
     return (
       <div className="flex justify-center py-20">
@@ -493,13 +596,13 @@ const Orders = () => {
         </div>
 
         {pageMessage && (
-          <div className="mb-3 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs font-medium text-emerald-700 sm:mb-5 sm:rounded-2xl sm:px-4 sm:py-3 sm:text-sm">
+          <div className="mb-3 hidden rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs font-medium text-emerald-700 sm:mb-5 sm:block sm:rounded-2xl sm:px-4 sm:py-3 sm:text-sm">
             {pageMessage}
           </div>
         )}
 
         {(pageError || fundingError) && (
-          <div className="mb-3 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-medium text-rose-700 sm:mb-5 sm:rounded-2xl sm:px-4 sm:py-3 sm:text-sm">
+          <div className="mb-3 hidden rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-medium text-rose-700 sm:mb-5 sm:block sm:rounded-2xl sm:px-4 sm:py-3 sm:text-sm">
             {pageError || fundingError}
           </div>
         )}
@@ -507,8 +610,8 @@ const Orders = () => {
         <div className="grid gap-3 sm:gap-5 lg:grid-cols-[1.3fr,0.7fr]">
           <section className="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm sm:rounded-3xl sm:p-6">
             <div className="grid gap-2 sm:gap-4 md:grid-cols-2">
-              <div className="rounded-xl bg-slate-950 p-3 text-white sm:rounded-2xl sm:p-4">
-                <p className="text-[10px] font-medium uppercase tracking-wide text-slate-300 sm:text-xs">Wallet Balance</p>
+              <div className="rounded-xl bg-purple-700 p-3 text-purple-50 sm:rounded-2xl sm:p-4">
+                <p className="text-[10px] font-medium uppercase tracking-wide text-purple-200 sm:text-xs">Wallet Balance</p>
                 <p className="mt-1 text-lg font-bold sm:mt-2 sm:text-2xl">{formatCurrency(walletBalance)}</p>
               </div>
               <div className="rounded-xl bg-amber-50 p-3 sm:rounded-2xl sm:p-4">
@@ -551,7 +654,7 @@ const Orders = () => {
                 <span className="block text-xs font-bold text-slate-950 sm:text-sm">Transaction History</span>
                 <span className="mt-0.5 block text-[10px] text-slate-500 sm:text-xs">View deposits and product payments</span>
               </span>
-              <span className="rounded-full bg-slate-950 px-2.5 py-1 text-[10px] font-bold text-white sm:px-3 sm:py-1.5 sm:text-xs">
+              <span className="rounded-full bg-purple-700 px-2.5 py-1 text-[10px] font-bold text-purple-50 sm:px-3 sm:py-1.5 sm:text-xs">
                 Open
               </span>
             </button>
@@ -612,6 +715,7 @@ const Orders = () => {
                   </tr>
                 ) : activeItems.map((item) => {
                   const due = Math.max(0, Number(item.subtotal || 0) - Number(item.paidAmount || 0));
+                  const fulfillmentDisplay = getItemFulfillmentDisplay(item);
                   return (
                     <tr key={item._id}>
                       <td className="whitespace-nowrap px-5 py-4">{formatDate(item.addedAt || activeOrder.createdAt)}</td>
@@ -636,8 +740,8 @@ const Orders = () => {
                       <td className="px-5 py-4">{item.quantity}</td>
                       <td className="whitespace-nowrap px-5 py-4 font-bold text-slate-900">{formatCurrency(item.subtotal)}</td>
                       <td className="px-5 py-4">
-                        <span className={`inline-flex rounded-full border px-2.5 py-1 text-xs font-bold capitalize ${getStatusPill(item.fulfillmentStatus)}`}>
-                          {item.fulfillmentStatus || 'pending'}
+                        <span className={`inline-flex rounded-full border px-2.5 py-1 text-xs font-bold ${getStatusPill(fulfillmentDisplay.status)}`}>
+                          {fulfillmentDisplay.label}
                         </span>
                       </td>
                       <td className="px-5 py-4">
@@ -681,6 +785,7 @@ const Orders = () => {
               </div>
             ) : activeItems.map((item) => {
               const due = Math.max(0, Number(item.subtotal || 0) - Number(item.paidAmount || 0));
+              const fulfillmentDisplay = getItemFulfillmentDisplay(item);
               return (
                 <div key={item._id} className="rounded-xl border border-slate-100 bg-slate-50 p-2.5 sm:rounded-2xl sm:p-4">
                   <div className="flex items-start justify-between gap-2 sm:gap-3">
@@ -694,8 +799,8 @@ const Orders = () => {
                     <span className={`rounded-full border px-2 py-0.5 font-bold capitalize sm:px-2.5 sm:py-1 ${getStatusPill(item.paymentStatus)}`}>
                       {item.paymentStatus || 'unpaid'}
                     </span>
-                    <span className={`rounded-full border px-2 py-0.5 font-bold capitalize sm:px-2.5 sm:py-1 ${getStatusPill(item.fulfillmentStatus)}`}>
-                      {item.fulfillmentStatus || 'pending'}
+                    <span className={`rounded-full border px-2 py-0.5 font-bold sm:px-2.5 sm:py-1 ${getStatusPill(fulfillmentDisplay.status)}`}>
+                      {fulfillmentDisplay.label}
                     </span>
                   </div>
                   <p className="mt-2 text-[10px] leading-4 text-slate-500 sm:mt-3 sm:text-xs">{activeOrder.shippingAddress || 'No shipping address'}</p>
@@ -847,6 +952,43 @@ const Orders = () => {
         </div>
       )}
 
+      {alertText && showMobileAlert && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 p-4 sm:hidden">
+          <div className="w-full max-w-sm rounded-2xl bg-white p-4 shadow-2xl">
+            <div className={`mx-auto mb-3 flex h-11 w-11 items-center justify-center rounded-full ${
+              alertIsError ? 'bg-rose-100 text-rose-700' : 'bg-emerald-100 text-emerald-700'
+            }`}>
+              {alertIsError ? (
+                <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v4m0 4h.01M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+                </svg>
+              ) : (
+                <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                </svg>
+              )}
+            </div>
+            <h3 className="text-center text-base font-bold text-slate-950">
+              {alertIsError ? 'Action Failed' : 'Action Successful'}
+            </h3>
+            <p className="mt-2 text-center text-sm leading-6 text-slate-600">{alertText}</p>
+            <button
+              type="button"
+              onClick={() => {
+                setShowMobileAlert(false);
+                setPageMessage('');
+                setPageError('');
+              }}
+              className={`mt-4 w-full rounded-xl px-4 py-3 text-sm font-bold text-white ${
+                alertIsError ? 'bg-rose-600 hover:bg-rose-700' : 'bg-emerald-600 hover:bg-emerald-700'
+              }`}
+            >
+              OK
+            </button>
+          </div>
+        </div>
+      )}
+
       {replaceItem && (
         <div className="fixed inset-0 z-50 bg-slate-950/60 p-3 sm:p-5">
           <div className="mx-auto flex h-full max-w-6xl flex-col overflow-hidden rounded-3xl bg-white shadow-2xl">
@@ -941,14 +1083,30 @@ const Orders = () => {
                     <span className="text-slate-500">New item</span>
                     <span className="font-bold text-slate-900">{formatCurrency(replacementSubtotal)}</span>
                   </div>
+                  {replacePaidAmount > 0 && (
+                    <div className="mt-3 flex justify-between gap-3">
+                      <span className="text-slate-500">Old payment reversed</span>
+                      <span className="font-bold text-emerald-700">{formatCurrency(replacePaidAmount)}</span>
+                    </div>
+                  )}
                   <div className="mt-3 border-t border-slate-100 pt-3">
                     <div className="flex justify-between gap-3">
                       <span className="text-slate-500">New order total</span>
                       <span className="font-bold text-slate-900">{formatCurrency(replacementOrderTotal)}</span>
                     </div>
                     <div className="mt-3 flex justify-between gap-3">
+                      <span className="text-slate-500">New item payment</span>
+                      <span className={`font-bold ${replacementWillBePaid ? 'text-emerald-700' : 'text-slate-700'}`}>
+                        {replacementWillBePaid ? formatCurrency(replacementSubtotal) : 'Waiting for payment'}
+                      </span>
+                    </div>
+                    <div className="mt-3 flex justify-between gap-3">
                       <span className="text-slate-500">Remaining balance</span>
                       <span className="font-bold text-amber-700">{formatCurrency(replacementRemainingBalance)}</span>
+                    </div>
+                    <div className="mt-3 flex justify-between gap-3">
+                      <span className="text-slate-500">Wallet after change</span>
+                      <span className="font-bold text-purple-700">{formatCurrency(projectedWalletBalance)}</span>
                     </div>
                   </div>
                 </div>
@@ -956,15 +1114,20 @@ const Orders = () => {
                 {selectedReplacementProduct && activeReplacementVariations.length > 0 && (
                   <div className="mt-4">
                     <label className="mb-2 block text-sm font-bold text-slate-700">Variation</label>
+                    <MobileVariationDropdown
+                      value={replacementVariationId}
+                      options={activeReplacementVariations}
+                      onChange={setReplacementVariationId}
+                    />
                     <select
                       value={replacementVariationId}
                       onChange={(event) => setReplacementVariationId(event.target.value)}
-                      className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100"
+                      className="hidden w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100 sm:block"
                     >
                       <option value="">Select variation</option>
                       {activeReplacementVariations.map((variation) => (
                         <option key={variation._id} value={variation._id}>
-                          {variation.name} - {formatCurrency(variation.price)}
+                          {getVariationLabel(variation)} - {formatCurrency(variation.price)}
                         </option>
                       ))}
                     </select>

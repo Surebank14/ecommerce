@@ -11,6 +11,62 @@ import {
 import { fetchWalletRequest } from '../redux/slices/walletSlice';
 import { API_URL, getAuthHeader } from '../utils/api';
 
+const getVariationLabel = (variation) => {
+  if (!variation) return '';
+  const optionValues = variation.optionValues && typeof variation.optionValues === 'object'
+    ? Object.values(variation.optionValues).filter(Boolean)
+    : [];
+  return optionValues.length > 0 ? optionValues.join(' / ') : variation.name;
+};
+
+const formatVariationCurrency = (amount) => `₦${Number(amount || 0).toLocaleString()}`;
+
+const MobileVariationDropdown = ({ value, options, onChange }) => {
+  const [open, setOpen] = useState(false);
+  const selectedVariation = (options || []).find((variation) => variation._id === value);
+
+  return (
+    <div className="relative sm:hidden">
+      <button
+        type="button"
+        onClick={() => setOpen((current) => !current)}
+        className="flex w-full items-center justify-between rounded-xl border border-gray-200 bg-white px-4 py-3 text-left text-sm"
+      >
+        <span className={selectedVariation ? 'font-semibold text-gray-900' : 'text-gray-500'}>
+          {selectedVariation
+            ? `${getVariationLabel(selectedVariation)} - ${formatVariationCurrency(selectedVariation.price)}`
+            : 'Select variation'}
+        </span>
+        <span className={`ml-3 text-xs transition-transform ${open ? 'rotate-180' : ''}`}>⌄</span>
+      </button>
+      {open && (
+        <div className="absolute left-0 right-0 top-[calc(100%+4px)] z-[70] max-h-56 overflow-y-auto rounded-xl border border-gray-200 bg-white shadow-xl">
+          {(options || []).map((variation) => {
+            const selected = variation._id === value;
+            return (
+              <button
+                type="button"
+                key={variation._id}
+                onClick={() => {
+                  onChange(variation._id);
+                  setOpen(false);
+                }}
+                className={`block w-full border-b border-gray-100 px-4 py-3 text-left text-xs font-semibold last:border-b-0 ${
+                  selected
+                    ? 'bg-orange-50 text-orange-800'
+                    : 'bg-white text-gray-700'
+                }`}
+              >
+                {getVariationLabel(variation)} - {formatVariationCurrency(variation.price)}
+              </button>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+};
+
 const OrderConfirmation = () => {
   const dispatch = useDispatch();
   const { orderNumber } = useParams();
@@ -95,6 +151,7 @@ const OrderConfirmation = () => {
   const payments = order.installmentPlan?.payments || [];
   const paidPayments = payments.filter((payment) => payment.status === 'paid');
   const totalPaid = Number(order.installmentPlan?.totalPaid || 0);
+  const orderItemsPaidAmount = (order.items || []).reduce((sum, item) => sum + Number(item.paidAmount || 0), 0);
   const progressPercentage = Number(order.totalAmount || 0) > 0
     ? Math.min(100, Math.round((totalPaid / Number(order.totalAmount || 0)) * 100))
     : 0;
@@ -196,7 +253,16 @@ const OrderConfirmation = () => {
   const replacementOrderTotal = replaceItem
     ? Number(order.totalAmount || 0) - Number(replaceItem.subtotal || 0) + replacementSubtotal
     : Number(order.totalAmount || 0);
-  const replacementRemainingBalance = Math.max(0, replacementOrderTotal - totalPaid);
+  const replacePaidAmount = Number(replaceItem?.paidAmount || 0);
+  const otherItemsPaidAmount = Math.max(0, orderItemsPaidAmount - replacePaidAmount);
+  const walletAfterOldPaymentReversal = walletBalance + replacePaidAmount;
+  const replacementWillBePaid = replacementSubtotal > 0 && walletAfterOldPaymentReversal >= replacementSubtotal;
+  const replacementPaidAmount = replacementWillBePaid ? replacementSubtotal : 0;
+  const replacementProjectedPaidAmount = otherItemsPaidAmount + replacementPaidAmount;
+  const replacementRemainingBalance = Math.max(0, replacementOrderTotal - replacementProjectedPaidAmount);
+  const projectedWalletBalance = replacementWillBePaid
+    ? walletAfterOldPaymentReversal - replacementSubtotal
+    : walletAfterOldPaymentReversal;
 
   const openReplaceModal = (item) => {
     setReplaceItem(item);
@@ -214,11 +280,6 @@ const OrderConfirmation = () => {
 
     if (activeReplacementVariations.length > 0 && !replacementVariationId) {
       setReplaceError('Please select a product variation');
-      return;
-    }
-
-    if (replacementOrderTotal < totalPaid) {
-      setReplaceError(`Replacement total cannot be less than what you have already paid: ₦${totalPaid.toLocaleString()}`);
       return;
     }
 
@@ -622,18 +683,26 @@ const OrderConfirmation = () => {
             {activeReplacementVariations.length > 0 && (
               <div className="mt-4">
                 <label className="mb-1 block text-sm font-medium text-gray-700">Variation</label>
+                <MobileVariationDropdown
+                  value={replacementVariationId}
+                  options={activeReplacementVariations}
+                  onChange={(variationId) => {
+                    setReplacementVariationId(variationId);
+                    setReplaceError('');
+                  }}
+                />
                 <select
                   value={replacementVariationId}
                   onChange={(event) => {
                     setReplacementVariationId(event.target.value);
                     setReplaceError('');
                   }}
-                  className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm focus:border-orange-500 focus:outline-none focus:ring-2 focus:ring-orange-500"
+                  className="hidden w-full rounded-xl border border-gray-200 px-4 py-3 text-sm focus:border-orange-500 focus:outline-none focus:ring-2 focus:ring-orange-500 sm:block"
                 >
                   <option value="">Select variation</option>
                   {activeReplacementVariations.map((variation) => (
                     <option key={variation._id} value={variation._id}>
-                      {variation.name || Object.values(variation.optionValues || {}).join(' / ')} - ₦{Number(variation.price || 0).toLocaleString()}
+                      {getVariationLabel(variation)} - {formatVariationCurrency(variation.price)}
                     </option>
                   ))}
                 </select>
@@ -646,9 +715,25 @@ const OrderConfirmation = () => {
                   <span className="text-gray-600">New order total</span>
                   <span className="font-semibold">₦{replacementOrderTotal.toLocaleString()}</span>
                 </div>
+                {replacePaidAmount > 0 && (
+                  <div className="mt-2 flex justify-between gap-3">
+                    <span className="text-gray-600">Old payment reversed</span>
+                    <span className="font-semibold text-green-700">₦{replacePaidAmount.toLocaleString()}</span>
+                  </div>
+                )}
+                <div className="mt-2 flex justify-between gap-3">
+                  <span className="text-gray-600">New item payment</span>
+                  <span className={`font-semibold ${replacementWillBePaid ? 'text-green-700' : 'text-gray-700'}`}>
+                    {replacementWillBePaid ? `₦${replacementSubtotal.toLocaleString()}` : 'Waiting for payment'}
+                  </span>
+                </div>
                 <div className="mt-2 flex justify-between gap-3">
                   <span className="text-gray-600">New remaining balance</span>
                   <span className="font-semibold text-orange-700">₦{replacementRemainingBalance.toLocaleString()}</span>
+                </div>
+                <div className="mt-2 flex justify-between gap-3">
+                  <span className="text-gray-600">Wallet after change</span>
+                  <span className="font-semibold text-purple-700">₦{projectedWalletBalance.toLocaleString()}</span>
                 </div>
               </div>
             )}

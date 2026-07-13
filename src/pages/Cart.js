@@ -446,6 +446,20 @@ const Cart = () => {
     addressLGA, selectedPickupLocation, customer, totalAmount, openPaymentSourceModal
   ]);
 
+  const handleCreateOrderAfterTerms = useCallback(() => {
+    if (!termsAccepted) {
+      return;
+    }
+
+    setProcessingPayment(true);
+    setPaymentError('');
+    if (paymentType === 'installment') {
+      handleInstallmentPayment();
+    } else if (paymentType === 'outright') {
+      handleOutrightPayment();
+    }
+  }, [handleInstallmentPayment, handleOutrightPayment, paymentType, termsAccepted]);
+
   // Empty cart view
   if (items.length === 0) {
     return (
@@ -839,10 +853,7 @@ const Cart = () => {
                 <div className="mb-4">
                   <div className="flex items-start gap-2">
                     <button
-                      onClick={() => {
-                        if (!termsAccepted) setShowTermsModal(true);
-                        else setTermsAccepted(false);
-                      }}
+                      onClick={() => setTermsAccepted((accepted) => !accepted)}
                       className={`w-6 h-6 rounded flex items-center justify-center border-[3px] transition-colors ${
                         termsAccepted ? 'bg-orange-500 border-orange-500' : 'border-orange-500 bg-orange-50 hover:bg-orange-100'
                       }`}
@@ -854,9 +865,16 @@ const Cart = () => {
                       )}
                     </button>
                     <span className="text-sm font-semibold text-orange-600">
-                      I accept SureBank <button onClick={() => setShowTermsModal(true)} className="text-orange-600">Terms and Conditions</button>
+                      I accept SureBank Terms and Conditions.
                     </span>
                   </div>
+                  <button
+                    type="button"
+                    onClick={() => setShowTermsModal(true)}
+                    className="ml-8 mt-1 text-xs text-orange-500 underline hover:text-orange-600"
+                  >
+                    View terms & condition
+                  </button>
                 </div>
               )}
 
@@ -864,6 +882,21 @@ const Cart = () => {
                 <div className="mb-4 p-3 bg-red-100 text-red-700 rounded-lg text-sm">
                   {paymentError}
                 </div>
+              )}
+
+              {deliveryMethod && hasDeliveryDestination && (
+                <button
+                  type="button"
+                  onClick={handleCreateOrderAfterTerms}
+                  disabled={!termsAccepted || processingPayment || paymentLoading}
+                  className={`w-full rounded-full py-3 text-sm font-medium transition-colors ${
+                    termsAccepted
+                      ? 'bg-orange-500 text-white hover:bg-orange-600'
+                      : 'bg-gray-200 text-gray-500'
+                  } disabled:cursor-not-allowed disabled:opacity-80`}
+                >
+                  {termsAccepted ? (processingPayment || paymentLoading ? 'Creating...' : 'Create') : 'Accept terms to continue'}
+                </button>
               )}
             </div>
           </div>
