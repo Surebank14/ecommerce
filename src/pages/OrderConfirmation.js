@@ -10,6 +10,7 @@ import {
 } from '../redux/slices/orderSlice';
 import { fetchWalletRequest } from '../redux/slices/walletSlice';
 import { API_URL, getAuthHeader } from '../utils/api';
+import { calculateCustomerSellingPrice, getProductDisplayPrice } from '../utils/pricing';
 
 const getVariationLabel = (variation) => {
   if (!variation) return '';
@@ -34,7 +35,7 @@ const MobileVariationDropdown = ({ value, options, onChange }) => {
       >
         <span className={selectedVariation ? 'font-semibold text-gray-900' : 'text-gray-500'}>
           {selectedVariation
-            ? `${getVariationLabel(selectedVariation)} - ${formatVariationCurrency(selectedVariation.price)}`
+            ? `${getVariationLabel(selectedVariation)} - ${formatVariationCurrency(calculateCustomerSellingPrice(selectedVariation.price))}`
             : 'Select variation'}
         </span>
         <span className={`ml-3 text-xs transition-transform ${open ? 'rotate-180' : ''}`}>⌄</span>
@@ -57,7 +58,7 @@ const MobileVariationDropdown = ({ value, options, onChange }) => {
                     : 'bg-white text-gray-700'
                 }`}
               >
-                {getVariationLabel(variation)} - {formatVariationCurrency(variation.price)}
+                {getVariationLabel(variation)} - {formatVariationCurrency(calculateCustomerSellingPrice(variation.price))}
               </button>
             );
           })}
@@ -247,8 +248,8 @@ const OrderConfirmation = () => {
     (variation) => variation._id === replacementVariationId
   );
   const replacementUnitPrice = selectedReplacementVariation
-    ? Number(selectedReplacementVariation.price || 0)
-    : Number(selectedReplacementProduct?.price || 0);
+    ? calculateCustomerSellingPrice(selectedReplacementVariation.price)
+    : getProductDisplayPrice(selectedReplacementProduct);
   const replacementSubtotal = replacementUnitPrice * Number(replaceItem?.quantity || 1);
   const replacementOrderTotal = replaceItem
     ? Number(order.totalAmount || 0) - Number(replaceItem.subtotal || 0) + replacementSubtotal
@@ -675,7 +676,7 @@ const OrderConfirmation = () => {
               <option value="">Select product</option>
               {products.map((product) => (
                 <option key={product._id} value={product._id}>
-                  {product.name} - ₦{Number(product.price || 0).toLocaleString()}
+                  {product.name} - ₦{getProductDisplayPrice(product).toLocaleString()}
                 </option>
               ))}
             </select>
@@ -702,7 +703,7 @@ const OrderConfirmation = () => {
                   <option value="">Select variation</option>
                   {activeReplacementVariations.map((variation) => (
                     <option key={variation._id} value={variation._id}>
-                      {getVariationLabel(variation)} - {formatVariationCurrency(variation.price)}
+                      {getVariationLabel(variation)} - {formatVariationCurrency(calculateCustomerSellingPrice(variation.price))}
                     </option>
                   ))}
                 </select>

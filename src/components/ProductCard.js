@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
 import { addToCartRequest } from '../redux/slices/cartSlice';
 import { handleImageFallback, PRODUCT_FALLBACK_IMAGE, resolveImageUrl } from '../utils/image';
+import { getProductDisplayPrice } from '../utils/pricing';
 
 const ProductCard = ({ product, compact = false }) => {
   const dispatch = useDispatch();
@@ -45,7 +46,7 @@ const ProductCard = ({ product, compact = false }) => {
         </p>
         <div className={`mt-1 flex items-center justify-between ${compact ? 'gap-0.5' : 'gap-1'}`}>
           <span className={`font-bold text-primary-600 ${compact ? 'text-[11px]' : 'text-xs'}`}>
-            ₦{product.price?.toLocaleString()}
+            ₦{getProductDisplayPrice(product).toLocaleString()}
           </span>
           <button
             onClick={handleAddToCart}

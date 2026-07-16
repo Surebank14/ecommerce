@@ -6,6 +6,7 @@ import { fetchFeaturedProductsRequest, fetchCategoriesRequest, fetchProductsRequ
 import ProductCard from '../components/ProductCard';
 import { PRODUCT_FALLBACK_IMAGE, resolveImageUrl } from '../utils/image';
 import { API_URL } from '../utils/api';
+import { getProductDisplayPrice } from '../utils/pricing';
 
 const heroSlides = [
   {
@@ -511,7 +512,7 @@ const Home = () => {
                             />
                             <div className="flex-1 min-w-0">
                               <p className="text-xs font-medium text-gray-900 truncate">{product.name}</p>
-                              <p className="text-xs text-emerald-600 font-bold">₦{product.price?.toLocaleString()}</p>
+                              <p className="text-xs text-emerald-600 font-bold">₦{getProductDisplayPrice(product).toLocaleString()}</p>
                             </div>
                           </div>
                         ))}

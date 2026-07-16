@@ -10,6 +10,7 @@ import { fetchWalletRequest } from '../redux/slices/walletSlice';
 import { getStates, getLGAs, getTowns } from '../data/nigerianLocations';
 import { handleImageFallback, PRODUCT_FALLBACK_IMAGE, resolveImageUrl } from '../utils/image';
 import { API_URL, getAuthHeader } from '../utils/api';
+import { calculateCustomerSellingPrice, getProductDisplayPrice } from '../utils/pricing';
 import ProductCard from '../components/ProductCard';
 
 const ProductDetail = () => {
@@ -102,7 +103,9 @@ const ProductDetail = () => {
   const selectedVariation = hasVariations
     ? activeVariations.find((variation) => variation._id === selectedVariationId)
     : null;
-  const selectedPrice = selectedVariation ? selectedVariation.price : product?.price;
+  const selectedPrice = selectedVariation
+    ? calculateCustomerSellingPrice(selectedVariation.price)
+    : getProductDisplayPrice(product);
   const visibleVariations = showAllVariations
     ? activeVariations
     : activeVariations.slice(0, 2);
@@ -753,7 +756,7 @@ const ProductDetail = () => {
                             {variation.name || optionEntries.map(([, value]) => value).join(' / ')}
                           </span>
                           <span className="text-sm font-bold text-orange-500">
-                            ₦{Number(variation.price || 0).toLocaleString()}
+                            ₦{calculateCustomerSellingPrice(variation.price).toLocaleString()}
                           </span>
                         </div>
                         {optionEntries.length > 0 && (

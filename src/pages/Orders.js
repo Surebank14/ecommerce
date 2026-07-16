@@ -10,6 +10,7 @@ import {
 } from '../redux/slices/walletSlice';
 import { API_URL, getAuthHeader } from '../utils/api';
 import { handleImageFallback, PRODUCT_FALLBACK_IMAGE, resolveImageUrl } from '../utils/image';
+import { calculateCustomerSellingPrice, getProductDisplayPrice } from '../utils/pricing';
 
 const formatCurrency = (amount) => `N${Number(amount || 0).toLocaleString()}`;
 
@@ -88,7 +89,7 @@ const MobileVariationDropdown = ({ value, options, onChange }) => {
                     : 'bg-white text-slate-700'
                 }`}
               >
-                {getVariationLabel(variation)} - {formatCurrency(variation.price)}
+                {getVariationLabel(variation)} - {formatCurrency(calculateCustomerSellingPrice(variation.price))}
               </button>
             );
           })}
@@ -132,17 +133,7 @@ const getProductImage = (product) => (
   product?.images?.length ? resolveImageUrl(product.images[0]) : PRODUCT_FALLBACK_IMAGE
 );
 
-const getDisplayPrice = (product) => {
-  if (product?.hasVariations && Array.isArray(product.variations) && product.variations.length > 0) {
-    const activePrices = product.variations
-      .filter((variation) => variation.isActive !== false)
-      .map((variation) => Number(variation.price || 0))
-      .filter((price) => price > 0);
-    if (activePrices.length > 0) return Math.min(...activePrices);
-  }
-
-  return Number(product?.price || 0);
-};
+const getDisplayPrice = (product) => getProductDisplayPrice(product);
 
 const getTransactionNarration = (transaction) => (
   String(transaction?.narration || '').replace(/\s+-\s+Ref:.+$/i, '')
@@ -238,7 +229,7 @@ const Orders = () => {
   );
   const customerName = [customer?.firstName, customer?.lastName].filter(Boolean).join(' ') || 'Customer';
   const replacementUnitPrice = selectedReplacementVariation
-    ? Number(selectedReplacementVariation.price || 0)
+    ? calculateCustomerSellingPrice(selectedReplacementVariation.price)
     : getDisplayPrice(selectedReplacementProduct);
   const replacementSubtotal = replacementUnitPrice * Number(replaceItem?.quantity || 1);
   const replacementOrderTotal = replaceItem
@@ -1133,7 +1124,7 @@ const Orders = () => {
                       <option value="">Select variation</option>
                       {activeReplacementVariations.map((variation) => (
                         <option key={variation._id} value={variation._id}>
-                          {getVariationLabel(variation)} - {formatCurrency(variation.price)}
+                          {getVariationLabel(variation)} - {formatCurrency(calculateCustomerSellingPrice(variation.price))}
                         </option>
                       ))}
                     </select>
