@@ -7,6 +7,7 @@ import {
   fetchWalletRequest,
   initializeWalletFundingRequest,
 } from '../redux/slices/walletSlice';
+import { calculatePaystackPayableForNetAmount } from '../utils/paystackFee';
 
 const formatCurrency = (amount) => `N${Number(amount || 0).toLocaleString()}`;
 const isDebitTransaction = (transaction) => ['Debit', 'Bought', 'Delivered', 'Purchased'].includes(transaction?.direction);
@@ -57,6 +58,10 @@ const Wallet = () => {
   const selectedDSAccount = useMemo(
     () => (dsAccounts || []).find((dsAccount) => dsAccount._id === selectedDSAccountId) || null,
     [dsAccounts, selectedDSAccountId]
+  );
+  const dsPaystackCharge = useMemo(
+    () => calculatePaystackPayableForNetAmount(dsAmount),
+    [dsAmount]
   );
 
   const handleFundWallet = (event) => {
@@ -339,6 +344,26 @@ const Wallet = () => {
                     required
                   />
                 </div>
+
+                {Number(dsAmount || 0) > 0 && (
+                  <div className="rounded-2xl bg-orange-50 p-4 text-sm text-slate-900 ring-1 ring-orange-100">
+                    <div className="flex items-center justify-between gap-3">
+                      <span className="font-semibold text-slate-700">DS contribution</span>
+                      <span className="font-bold">{formatCurrency(dsPaystackCharge.contributionAmount)}</span>
+                    </div>
+                    <div className="mt-2 flex items-center justify-between gap-3">
+                      <span className="font-semibold text-orange-700">Paystack fee</span>
+                      <span className="font-bold text-orange-700">{formatCurrency(dsPaystackCharge.paystackFee)}</span>
+                    </div>
+                    <div className="mt-3 flex items-center justify-between gap-3 border-t border-orange-200 pt-3">
+                      <span className="font-black text-slate-950">Total to pay</span>
+                      <span className="font-black text-slate-950">{formatCurrency(dsPaystackCharge.payableAmount)}</span>
+                    </div>
+                    <p className="mt-2 text-xs font-semibold text-slate-500">
+                      This fee is charged by Paystack, not SureBank.
+                    </p>
+                  </div>
+                )}
 
                 <button
                   type="submit"

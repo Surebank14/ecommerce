@@ -29,7 +29,7 @@ const MobileBottomNav = () => {
       ),
     },
     {
-      label: 'History',
+      label: 'My Orders',
       to: '/orders',
       match: (pathname) => pathname.startsWith('/orders') || pathname.startsWith('/order-confirmation'),
       icon: (
@@ -43,9 +43,9 @@ const MobileBottomNav = () => {
       to: '/my-ds',
       match: (pathname) => pathname.startsWith('/my-ds'),
       icon: (
-        <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 3v18m5-15.5H9.5a3.5 3.5 0 0 0 0 7H14a3.5 3.5 0 0 1 0 7H6" />
-        </svg>
+        <span className="flex h-5 w-5 items-center justify-center text-base font-black leading-none" aria-hidden="true">
+          N
+        </span>
       ),
     },
     {

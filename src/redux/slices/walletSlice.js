@@ -3,6 +3,7 @@ import { createSlice } from '@reduxjs/toolkit';
 const initialState = {
   customer: null,
   account: null,
+  mainAccount: null,
   dsAccounts: [],
   dsTransactions: [],
   transactions: [],
@@ -29,6 +30,7 @@ const walletSlice = createSlice({
       state.loading = false;
       state.customer = action.payload.customer;
       state.account = action.payload.account;
+      state.mainAccount = action.payload.mainAccount || null;
       state.dsAccounts = action.payload.dsAccounts || [];
       state.dsTransactions = action.payload.dsTransactions || [];
       state.transactions = action.payload.transactions || [];
@@ -61,6 +63,7 @@ const walletSlice = createSlice({
       state.verifying = false;
       state.fundingVerified = true;
       state.account = action.payload.account;
+      state.mainAccount = action.payload.mainAccount || state.mainAccount || null;
       state.dsAccounts = action.payload.dsAccounts || state.dsAccounts || [];
       state.dsTransactions = action.payload.dsTransactions || state.dsTransactions || [];
       state.transactions = action.payload.transactions || [];

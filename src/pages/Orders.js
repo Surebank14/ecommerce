@@ -140,6 +140,19 @@ const getTransactionNarration = (transaction) => (
 );
 const isDebitTransaction = (transaction) => ['Debit', 'Bought', 'Delivered', 'Purchased'].includes(transaction?.direction);
 
+const mobileProductCardStyles = [
+  'border-orange-200 bg-orange-50',
+  'border-sky-200 bg-sky-50',
+  'border-emerald-200 bg-emerald-50',
+  'border-purple-200 bg-purple-50',
+  'border-rose-200 bg-rose-50',
+  'border-amber-200 bg-amber-50',
+];
+
+const getMobileProductCardStyle = (index) => (
+  mobileProductCardStyles[index % mobileProductCardStyles.length]
+);
+
 const Orders = () => {
   const dispatch = useDispatch();
   const location = useLocation();
@@ -160,6 +173,7 @@ const Orders = () => {
   const [pageMessage, setPageMessage] = useState('');
   const [showMobileAlert, setShowMobileAlert] = useState(false);
   const [showTransactionHistory, setShowTransactionHistory] = useState(false);
+  const [showDepositModal, setShowDepositModal] = useState(false);
   const [replaceItem, setReplaceItem] = useState(null);
   const [replacementProductId, setReplacementProductId] = useState('');
   const [replacementVariationId, setReplacementVariationId] = useState('');
@@ -371,6 +385,7 @@ const Orders = () => {
         callbackUrl: `${window.location.origin}/payment/wallet/verify`,
       },
       onSuccess: (data) => {
+        setShowDepositModal(false);
         window.location.href = data.authorization_url;
       },
       onError: (error) => {
@@ -573,7 +588,7 @@ const Orders = () => {
   return (
     <div className="min-h-screen bg-slate-100">
       <div className="mx-auto max-w-7xl px-3 py-4 sm:px-6 sm:py-8 lg:px-8">
-        <div className="mb-3 overflow-hidden rounded-2xl bg-slate-950 text-white shadow-sm sm:mb-6 sm:rounded-3xl">
+        <div className="mb-2 overflow-hidden rounded-2xl bg-slate-950 text-white shadow-sm sm:mb-6 sm:rounded-3xl">
           <div className="relative p-4 sm:p-6">
             <div className="absolute right-0 top-0 h-28 w-28 rounded-bl-full bg-orange-500/20 sm:h-40 sm:w-40" />
             <div className="relative flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
@@ -584,9 +599,22 @@ const Orders = () => {
               Thank you Dear {customerName}, our desire is to provide all your needs, feel free to search, browse or ask us on whatsapp
                 </p>
               </div>
-              <div className="min-w-0 rounded-2xl bg-white/10 px-4 py-3 text-sm ring-1 ring-white/10">
-                <p className="text-[10px] font-bold uppercase tracking-wide text-slate-300 sm:text-xs">SB Account</p>
-                <p className="mt-0.5 truncate text-base font-black text-white sm:text-lg">{activeOrder.SBAccountNumber || 'Pending'}</p>
+              <div className="grid min-w-0 grid-cols-2 gap-2 lg:block lg:min-w-[220px]">
+                <div className="min-w-0 rounded-2xl bg-white/10 px-3 py-3 text-sm ring-1 ring-white/10 sm:px-4">
+                  <p className="text-[10px] font-bold uppercase tracking-wide text-slate-300 sm:text-xs">SB Account</p>
+                  <p className="mt-0.5 truncate text-sm font-black text-white sm:text-lg">{activeOrder.SBAccountNumber || 'Pending'}</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    dispatch(fetchWalletRequest());
+                    setShowTransactionHistory(true);
+                  }}
+                  className="min-w-0 rounded-2xl bg-orange-500 px-3 py-3 text-left text-sm text-white ring-1 ring-orange-300/40 lg:hidden"
+                >
+                  <span className="block text-[10px] font-bold uppercase tracking-wide text-orange-50 sm:text-xs">Transaction</span>
+                  <span className="mt-0.5 block truncate text-sm font-black sm:text-lg">History</span>
+                </button>
               </div>
             </div>
           </div>
@@ -604,20 +632,20 @@ const Orders = () => {
           </div>
         )}
 
-        <div className="grid gap-3 sm:gap-5 lg:grid-cols-[1.3fr,0.7fr]">
+        <div className="grid gap-2 sm:gap-5 lg:grid-cols-[1.3fr,0.7fr]">
           <section className="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm sm:rounded-3xl sm:p-6">
-            <div className="grid gap-2 sm:gap-4 md:grid-cols-2">
+            <div className="grid grid-cols-2 gap-2 sm:gap-4">
               <div className="rounded-xl bg-purple-700 p-3 text-purple-50 shadow-sm sm:rounded-2xl sm:p-4">
                 <p className="text-[10px] font-medium uppercase tracking-wide text-purple-200 sm:text-xs">Wallet Balance</p>
                 <p className="mt-1 text-lg font-bold sm:mt-2 sm:text-2xl">{formatCurrency(walletBalance)}</p>
               </div>
-              <div className="rounded-xl border border-orange-100 bg-orange-50 p-3 sm:rounded-2xl sm:p-4">
-                <p className="text-[10px] font-medium uppercase tracking-wide text-amber-700 sm:text-xs">Remaining Balance</p>
-                <p className="mt-1 text-lg font-bold text-orange-950 sm:mt-2 sm:text-2xl">{formatCurrency(remainingBalance)}</p>
+              <div className="rounded-xl border border-sky-100 bg-sky-100 p-3 sm:rounded-2xl sm:p-4">
+                <p className="text-[10px] font-medium uppercase tracking-wide text-sky-700 sm:text-xs">Remaining Balance</p>
+                <p className="mt-1 text-lg font-bold text-sky-950 sm:mt-2 sm:text-2xl">{formatCurrency(remainingBalance)}</p>
               </div>
             </div>
 
-            <div className="mt-3 sm:mt-6">
+            <div className="mt-3 hidden sm:mt-6 lg:block">
               <div className="mb-1.5 flex items-center justify-between gap-3 sm:mb-2 sm:gap-4">
                 <p className="text-xs font-semibold text-slate-800 sm:text-sm">Payment Progress</p>
                 <p className="text-xs font-bold text-purple-700 sm:text-sm">{progress}%</p>
@@ -642,22 +670,17 @@ const Orders = () => {
             <button
               type="button"
               onClick={() => {
-                dispatch(fetchWalletRequest());
-                setShowTransactionHistory(true);
+                setPageError('');
+                setPageMessage('');
+                setShowDepositModal(true);
               }}
-              className="flex w-full items-center justify-between rounded-2xl border border-slate-200 bg-white px-3 py-3 text-left shadow-sm sm:rounded-3xl sm:px-5 sm:py-4"
+              className="w-full rounded-2xl bg-orange-500 px-4 py-3 text-center text-sm font-black text-white shadow-sm ring-1 ring-orange-300/40"
             >
-              <span>
-                <span className="block text-xs font-bold text-slate-950 sm:text-sm">Transaction History</span>
-                <span className="mt-0.5 block text-[10px] text-slate-500 sm:text-xs">View deposits and product payments</span>
-              </span>
-              <span className="rounded-full bg-purple-700 px-2.5 py-1 text-[10px] font-bold text-purple-50 sm:px-3 sm:py-1.5 sm:text-xs">
-                Open
-              </span>
+              Deposit to Wallet
             </button>
           </div>
 
-          <aside className="rounded-2xl border border-orange-100 bg-white p-3 shadow-sm sm:rounded-3xl sm:p-6">
+          <aside className="hidden rounded-2xl border border-orange-100 bg-white p-3 shadow-sm sm:rounded-3xl sm:p-6 lg:block">
             <h2 className="text-base font-bold text-slate-950 sm:text-lg">Deposit to Wallet</h2>
             <p className="mt-0.5 text-xs text-slate-500 sm:mt-1 sm:text-sm">Fund your wallet with Paystack, then pay for any product row.</p>
             <form className="mt-3 space-y-2 sm:mt-5 sm:space-y-3" onSubmit={handleFundWallet}>
@@ -682,10 +705,12 @@ const Orders = () => {
           </aside>
         </div>
 
-        <section className="mt-3 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm sm:mt-6 sm:rounded-3xl">
+        <section className="mt-2 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm sm:mt-6 sm:rounded-3xl">
           <div className="border-b border-slate-100 bg-white px-3 py-3 sm:px-6 sm:py-4">
             <h2 className="text-base font-bold text-slate-950 sm:text-lg">Products Under This Order</h2>
-            <p className="mt-0.5 text-xs text-slate-500 sm:mt-1 sm:text-sm">Pay, replace, and track collection status per product.</p>
+            <p className="mt-1 inline-flex rounded-full bg-orange-100 px-3 py-1 text-[11px] font-black text-orange-700 ring-1 ring-orange-200 sm:bg-transparent sm:px-0 sm:py-0 sm:text-sm sm:font-normal sm:text-slate-500 sm:ring-0">
+              Pay, replace, and track collection status per product.
+            </p>
           </div>
 
           <div className="hidden overflow-x-auto lg:block">
@@ -775,16 +800,17 @@ const Orders = () => {
             </table>
           </div>
 
-          <div className="space-y-2 p-2.5 sm:space-y-3 sm:p-4 lg:hidden">
+          <div className="space-y-1.5 p-2 sm:space-y-3 sm:p-4 lg:hidden">
             {activeItems.length === 0 ? (
               <div className="rounded-xl border border-dashed border-slate-200 bg-white p-4 text-center text-xs text-slate-500 sm:rounded-2xl sm:p-6 sm:text-sm">
                 No active products pending on this order.
               </div>
-            ) : activeItems.map((item) => {
+            ) : activeItems.map((item, index) => {
               const due = Math.max(0, Number(item.subtotal || 0) - Number(item.paidAmount || 0));
               const fulfillmentDisplay = getItemFulfillmentDisplay(item);
+              const cardStyle = getMobileProductCardStyle(index);
               return (
-                <div key={item._id} className="rounded-xl border border-slate-100 bg-white p-2.5 shadow-sm sm:rounded-2xl sm:p-4">
+                <div key={item._id} className={`rounded-xl border p-2 shadow-sm sm:rounded-2xl sm:p-4 ${cardStyle}`}>
                   <div className="flex items-start justify-between gap-2 sm:gap-3">
                     <div>
                       <p className="text-sm font-bold leading-5 text-slate-950 sm:text-base">{item.productName}</p>
@@ -792,7 +818,7 @@ const Orders = () => {
                     </div>
                     <p className="text-sm font-bold text-slate-950 sm:text-base">{formatCurrency(item.subtotal)}</p>
                   </div>
-                  <div className="mt-2 grid grid-cols-2 gap-1.5 text-[10px] sm:mt-3 sm:gap-2 sm:text-xs">
+                  <div className="mt-1.5 grid grid-cols-2 gap-1.5 text-[10px] sm:mt-3 sm:gap-2 sm:text-xs">
                     <span className={`rounded-full border px-2 py-0.5 font-bold capitalize sm:px-2.5 sm:py-1 ${getStatusPill(item.paymentStatus)}`}>
                       {item.paymentStatus || 'unpaid'}
                     </span>
@@ -800,8 +826,8 @@ const Orders = () => {
                       {fulfillmentDisplay.label}
                     </span>
                   </div>
-                  <p className="mt-2 text-[10px] leading-4 text-slate-500 sm:mt-3 sm:text-xs">{activeOrder.shippingAddress || 'No shipping address'}</p>
-                  <div className="mt-2.5 flex gap-1.5 sm:mt-4 sm:gap-2">
+                  <p className="mt-1.5 text-[10px] leading-4 text-slate-500 sm:mt-3 sm:text-xs">{activeOrder.shippingAddress || 'No shipping address'}</p>
+                  <div className="mt-2 flex gap-1.5 sm:mt-4 sm:gap-2">
                     <button
                       type="button"
                       onClick={() => openReplaceModal(item)}
@@ -822,6 +848,24 @@ const Orders = () => {
                 </div>
               );
             })}
+          </div>
+        </section>
+
+        <section className="mt-2 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm sm:rounded-3xl sm:p-5 lg:hidden">
+          <div className="mb-1.5 flex items-center justify-between gap-3">
+            <p className="text-xs font-semibold text-slate-800">Payment Progress</p>
+            <p className="text-xs font-bold text-purple-700">{progress}%</p>
+          </div>
+          <div className="h-2 overflow-hidden rounded-full bg-slate-100">
+            <div
+              className="h-full rounded-full bg-gradient-to-r from-orange-500 via-purple-600 to-emerald-500"
+              style={{ width: `${progress}%` }}
+            />
+          </div>
+          <div className="mt-2 flex flex-wrap gap-1.5 text-[10px] leading-4 text-slate-500">
+            <span>Created: {formatDate(activeOrder.createdAt)}</span>
+            <span>Shipping: {activeOrder.shippingAddress || 'Not provided'}</span>
+            <span className="capitalize">Collection: {collectionStatus}</span>
           </div>
         </section>
 
@@ -945,6 +989,47 @@ const Orders = () => {
                 </div>
               )}
             </div>
+          </div>
+        </div>
+      )}
+
+      {showDepositModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 p-4 lg:hidden">
+          <div className="w-full max-w-sm rounded-3xl bg-white p-4 shadow-2xl">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <h2 className="text-lg font-black text-slate-950">Deposit to Wallet</h2>
+                <p className="mt-1 text-xs text-slate-500">Enter amount and continue to Paystack.</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowDepositModal(false)}
+                className="rounded-full bg-slate-100 px-3 py-1.5 text-xs font-bold text-slate-700"
+              >
+                Close
+              </button>
+            </div>
+
+            <form className="mt-5 space-y-3" onSubmit={handleFundWallet}>
+              <input
+                type="number"
+                min="100"
+                step="100"
+                value={depositAmount}
+                onChange={(event) => setDepositAmount(event.target.value)}
+                placeholder="Amount"
+                className="w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm font-semibold outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-100"
+                required
+                autoFocus
+              />
+              <button
+                type="submit"
+                disabled={fundingLoading}
+                className="w-full rounded-2xl bg-orange-500 px-4 py-3 text-sm font-black text-white transition hover:bg-orange-600 disabled:cursor-not-allowed disabled:bg-orange-300"
+              >
+                {fundingLoading ? 'Redirecting...' : 'Deposit'}
+              </button>
+            </form>
           </div>
         </div>
       )}
