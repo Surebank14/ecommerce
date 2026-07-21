@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, Navigate, useLocation } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
 import axios from 'axios';
@@ -99,6 +99,230 @@ const MobileVariationDropdown = ({ value, options, onChange }) => {
   );
 };
 
+const inlineComputedStyles = (source, target) => {
+  const computedStyle = window.getComputedStyle(source);
+  target.setAttribute('style', computedStyle.cssText);
+
+  Array.from(source.children).forEach((sourceChild, index) => {
+    const targetChild = target.children[index];
+    if (targetChild) {
+      inlineComputedStyles(sourceChild, targetChild);
+    }
+  });
+};
+
+const captureReceiptAsBlob = async (element) => {
+  if (!element) {
+    throw new Error('Receipt is not ready to share.');
+  }
+
+  const clone = element.cloneNode(true);
+  inlineComputedStyles(element, clone);
+  clone.querySelectorAll('[data-receipt-actions="true"]').forEach((node) => node.remove());
+  clone.style.maxHeight = 'none';
+  clone.style.overflow = 'visible';
+
+  const width = Math.ceil(element.scrollWidth);
+  const height = Math.ceil(element.scrollHeight);
+  const serialized = new XMLSerializer().serializeToString(clone);
+  const svg = `
+    <svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}">
+      <foreignObject width="100%" height="100%">${serialized}</foreignObject>
+    </svg>
+  `;
+  const imageUrl = URL.createObjectURL(new Blob([svg], { type: 'image/svg+xml;charset=utf-8' }));
+
+  try {
+    const image = new Image();
+    await new Promise((resolve, reject) => {
+      image.onload = resolve;
+      image.onerror = reject;
+      image.src = imageUrl;
+    });
+
+    const canvas = document.createElement('canvas');
+    canvas.width = width * 2;
+    canvas.height = height * 2;
+    const context = canvas.getContext('2d');
+    context.fillStyle = '#ffffff';
+    context.fillRect(0, 0, canvas.width, canvas.height);
+    context.scale(2, 2);
+    context.drawImage(image, 0, 0);
+
+    return await new Promise((resolve) => canvas.toBlob(resolve, 'image/png', 1));
+  } finally {
+    URL.revokeObjectURL(imageUrl);
+  }
+};
+
+const shareOrDownloadReceipt = async ({ element, fileName }) => {
+  const blob = await captureReceiptAsBlob(element);
+  if (!blob) {
+    throw new Error('Could not create receipt image.');
+  }
+
+  const file = new File([blob], fileName, { type: 'image/png' });
+  if (navigator.share && navigator.canShare?.({ files: [file] })) {
+    await navigator.share({
+      files: [file],
+      title: 'SureBank Receipt',
+      text: 'SureBank product receipt',
+    });
+    return;
+  }
+
+  const downloadUrl = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = downloadUrl;
+  link.download = fileName;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(downloadUrl);
+};
+
+const getCustomerReceiptStaffName = (value) => {
+  const name = String(value || '').trim();
+  if (!name || name === 'N/A' || name === 'ECOMMERCE_SYSTEM') {
+    return 'Sure-Bank Delivery Team';
+  }
+  return name;
+};
+
+const ReceiptModal = ({ receipt, onClose, fallbackCustomerName = 'Customer' }) => {
+  const receiptRef = useRef(null);
+  const [shareLoading, setShareLoading] = useState(false);
+  if (!receipt) return null;
+
+  const product = receipt.product || {};
+  const customer = receipt.customer || {};
+  const payment = receipt.payment || {};
+  const staff = receipt.staff || {};
+  const deliveredByName = getCustomerReceiptStaffName(staff.deliveredBy);
+  const receiptFileName = `${String(receipt.receiptNumber || 'surebank-receipt').replace(/[^a-zA-Z0-9-_]/g, '-')}.png`;
+
+  const handleShare = async () => {
+    setShareLoading(true);
+    try {
+      await shareOrDownloadReceipt({
+        element: receiptRef.current,
+        fileName: receiptFileName,
+      });
+    } catch (error) {
+      alert(error.message || 'Failed to share receipt image.');
+    } finally {
+      setShareLoading(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-[80] flex items-center justify-center bg-slate-950/70 p-3 sm:p-5">
+      <div ref={receiptRef} className="receipt-print-area max-h-[92vh] w-full max-w-3xl overflow-y-auto rounded-3xl bg-white shadow-2xl">
+        <div className="bg-gradient-to-r from-orange-500 via-purple-600 to-sky-600 px-5 py-5 text-white sm:px-7">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <p className="text-[10px] font-black uppercase tracking-[0.22em] text-orange-100 sm:text-xs">Sure-Bank Stores</p>
+              <h2 className="mt-1 text-2xl font-black sm:text-3xl">Product Receipt</h2>
+              <p className="mt-1 text-xs font-bold text-white/85 sm:text-sm">{receipt.receiptNumber}</p>
+            </div>
+            <button type="button" onClick={onClose} className="print:hidden rounded-full bg-white/15 px-3 py-1.5 text-xs font-black hover:bg-white/25">
+              Close
+            </button>
+          </div>
+        </div>
+
+        <div className="space-y-4 p-4 sm:p-7">
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 sm:gap-3">
+            <div className="rounded-2xl bg-orange-50 p-3">
+              <p className="text-[10px] font-black uppercase text-orange-700">Date</p>
+              <p className="mt-1 text-xs font-bold text-slate-950 sm:text-sm">{formatDate(receipt.receiptDate)}</p>
+            </div>
+            <div className="rounded-2xl bg-purple-50 p-3">
+              <p className="text-[10px] font-black uppercase text-purple-700">Paid</p>
+              <p className="mt-1 text-xs font-bold text-slate-950 sm:text-sm">{formatDate(payment.paidAt)}</p>
+            </div>
+            <div className="rounded-2xl bg-sky-50 p-3">
+              <p className="text-[10px] font-black uppercase text-sky-700">Status</p>
+              <p className="mt-1 text-xs font-bold capitalize text-slate-950 sm:text-sm">{product.fulfillmentStatus || 'delivered'}</p>
+            </div>
+            <div className="rounded-2xl bg-emerald-50 p-3">
+              <p className="text-[10px] font-black uppercase text-emerald-700">Paid</p>
+              <p className="mt-1 text-sm font-black text-emerald-800 sm:text-lg">{formatCurrency(product.totalAmount)}</p>
+            </div>
+          </div>
+
+          <div className="rounded-2xl border border-slate-100 p-4">
+              <p className="text-xs font-black uppercase text-slate-500">Customer</p>
+              <p className="mt-2 text-sm font-black text-slate-950">{customer.name || fallbackCustomerName}</p>
+              <p className="text-xs text-slate-500">{customer.phone || 'N/A'}</p>
+              <p className="mt-2 text-xs leading-5 text-slate-500">{customer.address || 'No address supplied'}</p>
+          </div>
+
+          <div className="overflow-hidden rounded-2xl border border-slate-100">
+            <table className="min-w-full text-sm">
+              <thead className="bg-slate-950 text-left text-[10px] font-black uppercase text-white sm:text-xs">
+                <tr>
+                  <th className="px-3 py-3 sm:px-4">Product</th>
+                  <th className="px-3 py-3 sm:px-4">Qty</th>
+                  <th className="px-3 py-3 text-right sm:px-4">Amount</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td className="px-3 py-4 sm:px-4">
+                    <p className="font-black text-slate-950">{product.name || 'N/A'}</p>
+                    {product.description && <p className="mt-1 text-xs text-slate-500">{product.description}</p>}
+                  </td>
+                  <td className="px-3 py-4 font-bold text-slate-700 sm:px-4">{Number(product.quantity || 1).toLocaleString()}</td>
+                  <td className="px-3 py-4 text-right font-black text-slate-950 sm:px-4">{formatCurrency(product.totalAmount)}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div className="flex justify-end">
+            <div className="w-full max-w-xs rounded-2xl border border-slate-100 bg-slate-50 p-4 text-center">
+              <p className="text-[10px] font-black uppercase tracking-wide text-slate-500">Authorized Signature</p>
+              {staff.signatureUrl ? (
+                <img
+                  src={staff.signatureUrl}
+                  alt={`${deliveredByName} signature`}
+                  crossOrigin="anonymous"
+                  className="mx-auto mt-2 h-14 w-full max-w-[220px] object-contain sm:h-16"
+                />
+              ) : (
+                <div className="mx-auto mt-3 h-12 w-full max-w-[220px] border-b-2 border-slate-300"></div>
+              )}
+              <p className="mt-2 text-xs font-black text-slate-900">{deliveredByName}</p>
+            </div>
+          </div>
+
+          <div data-receipt-actions="true" className="print:hidden flex justify-end gap-2">
+            <button
+              type="button"
+              onClick={handleShare}
+              disabled={shareLoading}
+              className="inline-flex items-center gap-2 rounded-xl bg-purple-600 px-4 py-2 text-sm font-black text-white hover:bg-purple-700 disabled:bg-purple-300"
+            >
+              <svg className="h-4 w-4" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true">
+                <path d="M15 12.5a2.5 2.5 0 0 0-1.96.95L7.83 10.4a2.7 2.7 0 0 0 0-.8l5.21-3.05A2.5 2.5 0 1 0 12.5 5a2.7 2.7 0 0 0 .04.4L7.33 8.45a2.5 2.5 0 1 0 0 3.1l5.21 3.05a2.7 2.7 0 0 0-.04.4A2.5 2.5 0 1 0 15 12.5Z" />
+              </svg>
+              {shareLoading ? 'Preparing...' : 'Share'}
+            </button>
+            <button type="button" onClick={() => window.print()} className="inline-flex items-center gap-2 rounded-xl bg-orange-500 px-4 py-2 text-sm font-black text-white hover:bg-orange-600">
+              <svg className="h-4 w-4" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true">
+                <path d="M6 2a1 1 0 0 0-1 1v3h10V3a1 1 0 0 0-1-1H6Zm9 10H5v5a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1v-5Z" />
+                <path d="M4 7a3 3 0 0 0-3 3v3a2 2 0 0 0 2 2h1v-4h12v4h1a2 2 0 0 0 2-2v-3a3 3 0 0 0-3-3H4Zm12 3.75a.75.75 0 1 1 0-1.5.75.75 0 0 1 0 1.5Z" />
+              </svg>
+              Print
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 const isCollected = (item) => ['delivered', 'completed'].includes(item?.fulfillmentStatus);
 const isActiveOrderItem = (item) => !isCollected(item);
 const lockedOrderStatuses = new Set(['delivered', 'completed', 'shipped', 'cancelled']);
@@ -174,12 +398,15 @@ const Orders = () => {
   const [showMobileAlert, setShowMobileAlert] = useState(false);
   const [showTransactionHistory, setShowTransactionHistory] = useState(false);
   const [showDepositModal, setShowDepositModal] = useState(false);
+  const [showDeliveredProductsModal, setShowDeliveredProductsModal] = useState(false);
   const [replaceItem, setReplaceItem] = useState(null);
   const [replacementProductId, setReplacementProductId] = useState('');
   const [replacementVariationId, setReplacementVariationId] = useState('');
   const [replacementSearch, setReplacementSearch] = useState('');
   const [replaceError, setReplaceError] = useState('');
   const [replaceLoading, setReplaceLoading] = useState(false);
+  const [receipt, setReceipt] = useState(null);
+  const [receiptLoadingId, setReceiptLoadingId] = useState('');
 
   useEffect(() => {
     if (isAuthenticated) {
@@ -221,6 +448,7 @@ const Orders = () => {
 
   const items = activeOrder?.items || [];
   const activeItems = items.filter(isActiveOrderItem);
+  const deliveredItems = items.filter(isCollected);
   const activeItemsTotalAmount = activeItems.reduce((sum, item) => sum + Number(item.subtotal || 0), 0);
   const activeItemsPaidAmount = activeItems.reduce((sum, item) => sum + Number(item.paidAmount || 0), 0);
   const totalAmount = Number(activeOrder?.totalAmount || 0);
@@ -511,6 +739,27 @@ const Orders = () => {
       setReplaceError(error.response?.data?.message || 'Failed to change product');
     } finally {
       setReplaceLoading(false);
+    }
+  };
+
+  const openReceipt = async (item) => {
+    const receiptItemId = item?.receiptItemId || item?._id;
+    if (!receiptItemId || !activeOrder) return;
+
+    setReceiptLoadingId(item._id);
+    setPageError('');
+    setPageMessage('');
+
+    try {
+      const endpoint = activeOrder.isBackofficeSBAccount || activeOrder.source === 'backoffice_sb_account'
+        ? `${API_URL}/api/sbaccount/customer/${encodeURIComponent(activeOrder.SBAccountNumber)}/items/${encodeURIComponent(receiptItemId)}/receipt`
+        : `${API_URL}/api/ecommerce/orders/customer/${encodeURIComponent(activeOrder._id)}/items/${encodeURIComponent(receiptItemId)}/receipt`;
+      const response = await axios.get(endpoint, { headers: getAuthHeader() });
+      setReceipt(response.data);
+    } catch (error) {
+      setPageError(error.response?.data?.message || 'Failed to load receipt.');
+    } finally {
+      setReceiptLoadingId('');
     }
   };
 
@@ -851,6 +1100,67 @@ const Orders = () => {
           </div>
         </section>
 
+        {deliveredItems.length > 0 && (
+          <section className="mt-2 overflow-hidden rounded-2xl border border-emerald-200 bg-white shadow-sm sm:mt-6 sm:rounded-3xl">
+            <button
+              type="button"
+              onClick={() => setShowDeliveredProductsModal(true)}
+              className="block w-full border-b border-emerald-100 bg-gradient-to-r from-emerald-50 via-sky-50 to-purple-50 px-3 py-3 text-left sm:px-6 sm:py-4 lg:pointer-events-none"
+            >
+              <h2 className="text-base font-black text-slate-950 sm:text-lg">Delivered Products</h2>
+              <p className="mt-1 text-[11px] font-bold text-emerald-700 sm:text-sm">
+                Receipts are available for products that have been delivered.
+              </p>
+            </button>
+
+            <div className="hidden overflow-x-auto lg:block">
+              <table className="min-w-full divide-y divide-slate-100">
+                <thead className="bg-slate-50 text-left text-xs font-bold uppercase tracking-wide text-slate-500">
+                  <tr>
+                    <th className="px-5 py-3">Delivered</th>
+                    <th className="px-5 py-3">Product</th>
+                    <th className="px-5 py-3">Qty</th>
+                    <th className="px-5 py-3">Amount</th>
+                    <th className="px-5 py-3">Status</th>
+                    <th className="px-5 py-3 text-right">Receipt</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 text-sm text-slate-700">
+                  {deliveredItems.map((item) => (
+                    <tr key={`delivered-${item._id}`}>
+                      <td className="whitespace-nowrap px-5 py-4">{formatDate(item.fulfilledAt || activeOrder.updatedAt)}</td>
+                      <td className="min-w-[240px] px-5 py-4">
+                        <p className="font-bold text-slate-950">{item.productName}</p>
+                        {(item.variationName || getSelectedOptionsText(item)) && (
+                          <p className="mt-1 text-xs text-slate-500">{item.variationName || getSelectedOptionsText(item)}</p>
+                        )}
+                      </td>
+                      <td className="px-5 py-4">{Number(item.quantity || 1).toLocaleString()}</td>
+                      <td className="whitespace-nowrap px-5 py-4 font-black text-slate-950">{formatCurrency(item.subtotal)}</td>
+                      <td className="px-5 py-4">
+                        <span className={`inline-flex rounded-full border px-2.5 py-1 text-xs font-bold capitalize ${getStatusPill(item.fulfillmentStatus)}`}>
+                          {item.fulfillmentStatus || 'delivered'}
+                        </span>
+                      </td>
+                      <td className="px-5 py-4 text-right">
+                        <button
+                          type="button"
+                          onClick={() => openReceipt(item)}
+                          disabled={receiptLoadingId === item._id}
+                          className="rounded-full bg-orange-500 px-4 py-2 text-xs font-black text-white hover:bg-orange-600 disabled:bg-orange-300"
+                        >
+                          {receiptLoadingId === item._id ? 'Loading...' : 'View Receipt'}
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+          </section>
+        )}
+
         <section className="mt-2 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm sm:rounded-3xl sm:p-5 lg:hidden">
           <div className="mb-1.5 flex items-center justify-between gap-3">
             <p className="text-xs font-semibold text-slate-800">Payment Progress</p>
@@ -1030,6 +1340,59 @@ const Orders = () => {
                 {fundingLoading ? 'Redirecting...' : 'Deposit'}
               </button>
             </form>
+          </div>
+        </div>
+      )}
+
+      {showDeliveredProductsModal && (
+        <div className="fixed inset-0 z-50 bg-slate-950/60 p-2 sm:p-3 lg:hidden">
+          <div className="flex max-h-full min-h-full flex-col overflow-hidden rounded-2xl bg-white shadow-2xl sm:rounded-3xl">
+            <div className="flex items-start justify-between gap-2 border-b border-emerald-100 bg-gradient-to-r from-emerald-50 via-sky-50 to-purple-50 px-3 py-3 sm:px-5 sm:py-4">
+              <div>
+                <h2 className="text-base font-black text-slate-950 sm:text-lg">Delivered Products</h2>
+                <p className="mt-0.5 text-[10px] font-bold text-emerald-700 sm:text-xs">
+                  Open a delivered product receipt for preview, print or share.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowDeliveredProductsModal(false)}
+                className="rounded-full bg-white/80 px-3 py-1.5 text-xs font-black text-slate-700"
+              >
+                Close
+              </button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto p-2 sm:p-4">
+              <div className="grid gap-1.5 sm:gap-3">
+                {deliveredItems.map((item, index) => (
+                  <div key={`delivered-modal-${item._id}`} className={`rounded-xl border p-2 shadow-sm sm:rounded-2xl sm:p-4 ${getMobileProductCardStyle(index + activeItems.length)}`}>
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <p className="text-sm font-black leading-5 text-slate-950 sm:text-base">{item.productName}</p>
+                        <p className="mt-0.5 text-[10px] font-semibold text-slate-500 sm:text-xs">
+                          Delivered: {formatDate(item.fulfilledAt || activeOrder.updatedAt)} | Qty {Number(item.quantity || 1).toLocaleString()}
+                        </p>
+                      </div>
+                      <p className="shrink-0 text-sm font-black text-slate-950 sm:text-base">{formatCurrency(item.subtotal)}</p>
+                    </div>
+                    <div className="mt-2 flex items-center justify-between gap-2">
+                      <span className={`rounded-full border px-2 py-0.5 text-[10px] font-black capitalize sm:px-2.5 sm:py-1 sm:text-xs ${getStatusPill(item.fulfillmentStatus)}`}>
+                        {item.fulfillmentStatus || 'delivered'}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => openReceipt(item)}
+                        disabled={receiptLoadingId === item._id}
+                        className="rounded-full bg-orange-500 px-3 py-1.5 text-[10px] font-black text-white shadow-sm disabled:bg-orange-300 sm:px-4 sm:py-2 sm:text-xs"
+                      >
+                        {receiptLoadingId === item._id ? 'Loading...' : 'Receipt'}
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
           </div>
         </div>
       )}
@@ -1242,6 +1605,12 @@ const Orders = () => {
           </div>
         </div>
       )}
+
+      <ReceiptModal
+        receipt={receipt}
+        onClose={() => setReceipt(null)}
+        fallbackCustomerName={customerName}
+      />
     </div>
   );
 };

@@ -14,6 +14,11 @@ const formatCurrency = (amount) => `N${Number(amount || 0).toLocaleString()}`;
 const isDebitLike = (transaction) => ['Debit', 'Charge'].includes(transaction?.direction);
 const clampPercent = (value) => Math.min(100, Math.max(0, Number(value || 0)));
 const dsPackageOptions = ['Rent', 'School fees', 'Food'];
+const sureBankPaymentAccount = {
+  bankName: 'Fidelity Bank',
+  accountName: 'SURE BANK STORES',
+  accountNumber: '5601047448',
+};
 
 const getRequestStatusClass = (status = '') => {
   const normalizedStatus = String(status).toLowerCase();
@@ -60,8 +65,10 @@ const MyDS = () => {
   const [createLoading, setCreateLoading] = useState(false);
   const [createError, setCreateError] = useState('');
   const [showCreatePackageModal, setShowCreatePackageModal] = useState(false);
+  const [showDSDepositModal, setShowDSDepositModal] = useState(false);
   const [isCreatePackageDropdownOpen, setIsCreatePackageDropdownOpen] = useState(false);
   const [showDSTransactionModal, setShowDSTransactionModal] = useState(false);
+  const [copiedBankDetail, setCopiedBankDetail] = useState('');
   const [showRequestModal, setShowRequestModal] = useState(false);
   const [requestAmount, setRequestAmount] = useState('');
   const [settlementBankName, setSettlementBankName] = useState('');
@@ -209,6 +216,18 @@ const MyDS = () => {
       },
       onError: (message) => setFormError(message),
     }));
+  };
+
+  const copyBankDetail = async (value, label) => {
+    if (!value) return;
+
+    try {
+      await navigator.clipboard.writeText(value);
+      setCopiedBankDetail(label);
+      window.setTimeout(() => setCopiedBankDetail(''), 1800);
+    } catch (error) {
+      setCopiedBankDetail('');
+    }
   };
 
   const handleCreateDSPackage = async (event) => {
@@ -450,6 +469,116 @@ const MyDS = () => {
     </section>
   );
 
+  const dsDepositForm = (
+    <form className="mt-4 space-y-3" onSubmit={handleDeposit}>
+      <div ref={packageDropdownRef} className="relative">
+        <label id="ds-package-label" className="mb-1.5 block text-xs font-bold text-slate-700">
+          DS Package
+        </label>
+        <button
+          type="button"
+          aria-haspopup="listbox"
+          aria-expanded={isPackageDropdownOpen}
+          aria-labelledby="ds-package-label"
+          onClick={() => setIsPackageDropdownOpen((open) => !open)}
+          className="flex w-full min-w-0 items-center justify-between gap-2 rounded-2xl border border-slate-300 bg-white px-3 py-2.5 text-left text-sm font-semibold text-slate-950 focus:border-purple-500 focus:outline-none focus:ring-2 focus:ring-purple-200"
+        >
+          <span className="min-w-0 flex-1 truncate">
+            {selectedDSAccount
+              ? `${selectedDSAccount.DSAccountNumber} - ${selectedDSAccount.accountType} - ${formatCurrency(selectedDSAccount.amountPerDay)}`
+              : 'Select DS package'}
+          </span>
+          <svg
+            className={`h-4 w-4 shrink-0 text-slate-500 transition-transform ${isPackageDropdownOpen ? 'rotate-180' : ''}`}
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+            aria-hidden="true"
+          >
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="m19 9-7 7-7-7" />
+          </svg>
+        </button>
+        {isPackageDropdownOpen && (
+          <div
+            role="listbox"
+            aria-labelledby="ds-package-label"
+            className="absolute left-0 right-0 top-full z-[90] mt-2 max-h-64 overflow-y-auto rounded-2xl border border-slate-200 bg-white p-1.5 shadow-xl"
+          >
+            {dsAccounts.map((dsAccount) => {
+              const active = dsAccount._id === selectedDSAccountId;
+
+              return (
+                <button
+                  key={dsAccount._id}
+                  type="button"
+                  role="option"
+                  aria-selected={active}
+                  onClick={() => {
+                    setSelectedDSAccountId(dsAccount._id);
+                    setIsPackageDropdownOpen(false);
+                  }}
+                  className={`flex w-full flex-col rounded-xl px-3 py-2.5 text-left text-sm transition ${
+                    active ? 'bg-purple-700 text-white' : 'text-slate-700 hover:bg-slate-50'
+                  }`}
+                >
+                  <span className="font-black">{dsAccount.DSAccountNumber}</span>
+                  <span className={`mt-0.5 text-xs font-semibold ${active ? 'text-purple-100' : 'text-slate-500'}`}>
+                    {dsAccount.accountType} | {formatCurrency(dsAccount.amountPerDay)} daily
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
+      <div>
+        <label htmlFor="ds-amount" className="mb-1.5 block text-xs font-bold text-slate-700">
+          Amount
+        </label>
+        <input
+          id="ds-amount"
+          type="number"
+          min={selectedDSAccount?.amountPerDay || 100}
+          step={selectedDSAccount?.amountPerDay || 100}
+          value={amount}
+          onChange={(event) => setAmount(event.target.value)}
+          placeholder={String(selectedDSAccount?.amountPerDay || 1000)}
+          className="w-full min-w-0 rounded-2xl border border-slate-300 px-3 py-2.5 text-sm font-bold text-slate-950 placeholder:text-slate-400 focus:border-purple-500 focus:outline-none focus:ring-2 focus:ring-purple-200"
+          required
+        />
+      </div>
+
+      {Number(amount || 0) > 0 && (
+        <div className="rounded-2xl bg-slate-50 p-3 text-xs font-bold text-slate-800">
+          <div className="flex items-center justify-between gap-3">
+            <span>DS contribution</span>
+            <span>{formatCurrency(dsPaystackCharge.contributionAmount)}</span>
+          </div>
+          <div className="mt-1 flex items-center justify-between gap-3 text-orange-700">
+            <span>Paystack fee</span>
+            <span>{formatCurrency(dsPaystackCharge.paystackFee)}</span>
+          </div>
+          <div className="mt-2 flex items-center justify-between gap-3 border-t border-slate-200 pt-2 text-sm font-black text-slate-950">
+            <span>Total to pay</span>
+            <span>{formatCurrency(dsPaystackCharge.payableAmount)}</span>
+          </div>
+          <p className="mt-2 text-[11px] font-semibold text-slate-500">
+            This fee is charged by Paystack, not SureBank.
+          </p>
+        </div>
+      )}
+
+      <button
+        type="submit"
+        disabled={fundingLoading}
+        className="flex w-full items-center justify-center rounded-full bg-orange-500 px-5 py-3 text-sm font-black text-white transition hover:bg-orange-600 disabled:cursor-not-allowed disabled:bg-orange-300"
+      >
+        {fundingLoading ? 'Redirecting...' : 'Deposit with Paystack'}
+      </button>
+    </form>
+  );
+
   const dsTransactionHistoryContent = filteredTransactions.length === 0 ? (
     <div className="rounded-2xl border border-dashed border-slate-200 px-4 py-8 text-center text-sm text-slate-500">
       No DS transactions found for this package.
@@ -680,124 +809,54 @@ const MyDS = () => {
 
           <div className="grid min-w-0 gap-3 lg:grid-cols-[0.85fr,1.35fr] lg:gap-5">
           <div className="min-w-0 space-y-3 sm:space-y-5">
-          <section className="min-w-0 rounded-2xl border border-emerald-700 bg-emerald-700 p-2.5 text-white shadow-sm sm:rounded-3xl sm:p-4">
-            <div className="flex items-start gap-2">
-              <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-xl bg-white/15 text-white sm:h-9 sm:w-9 sm:rounded-2xl">
-                <span className="text-sm font-black leading-none sm:text-lg">N</span>
+          <section className="grid min-w-0 grid-cols-2 gap-2 sm:gap-3">
+            <button
+              type="button"
+              onClick={() => {
+                setFormError('');
+                setShowDSDepositModal(true);
+              }}
+              className="min-w-0 rounded-2xl border border-emerald-700 bg-emerald-700 p-3 text-left text-white shadow-sm transition hover:bg-emerald-800 sm:rounded-3xl sm:p-5"
+            >
+              <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-white/15 text-white sm:h-10 sm:w-10 sm:rounded-2xl">
+                <span className="text-base font-black leading-none sm:text-lg">N</span>
               </div>
-              <div className="min-w-0">
-                <h2 className="text-sm font-black text-white sm:text-lg">Deposit to DS Package</h2>
-                <p className="text-[11px] text-emerald-50 sm:mt-0.5 sm:text-sm">Pay securely with Paystack.</p>
-              </div>
-            </div>
+              <p className="mt-3 text-[10px] font-black uppercase text-emerald-50 sm:text-xs">Paystack</p>
+              <h2 className="mt-0.5 text-sm font-black text-white sm:text-lg">Deposit Online</h2>
+              <p className="mt-1 text-[11px] font-semibold leading-4 text-emerald-50 sm:text-sm">
+                Select package and pay securely.
+              </p>
+            </button>
 
-            <form className="mt-2 space-y-2.5 sm:mt-3 sm:space-y-3" onSubmit={handleDeposit}>
-              <div ref={packageDropdownRef} className="relative">
-                <label id="ds-package-label" className="mb-1 block text-xs font-bold text-emerald-50 sm:text-sm">
-                  DS Package
-                </label>
+            <section className="min-w-0 rounded-2xl border border-orange-500 bg-orange-500 p-3 text-white shadow-sm sm:rounded-3xl sm:p-5">
+              <div className="flex items-start justify-between gap-2">
+                <div className="min-w-0">
+                  <p className="text-[10px] font-black uppercase text-orange-50 sm:text-xs">Bank Transfer</p>
+                  <h2 className="mt-0.5 text-sm font-black text-white sm:text-lg">Pay to SureBank</h2>
+                </div>
                 <button
                   type="button"
-                  aria-haspopup="listbox"
-                  aria-expanded={isPackageDropdownOpen}
-                  aria-labelledby="ds-package-label"
-                  onClick={() => setIsPackageDropdownOpen((open) => !open)}
-                  className="flex w-full min-w-0 items-center justify-between gap-2 rounded-xl border border-slate-300 bg-white px-2.5 py-2 text-left text-xs font-semibold text-slate-950 focus:border-purple-500 focus:outline-none focus:ring-2 focus:ring-purple-200 sm:rounded-2xl sm:px-3 sm:py-2.5 sm:text-sm"
+                  onClick={() => copyBankDetail(sureBankPaymentAccount.accountNumber, 'accountNumber')}
+                  className="shrink-0 rounded-full bg-white/20 px-2.5 py-1 text-[10px] font-black text-white hover:bg-white/30 sm:text-xs"
                 >
-                  <span className="min-w-0 flex-1 truncate">
-                    {selectedDSAccount
-                      ? `${selectedDSAccount.DSAccountNumber} - ${selectedDSAccount.accountType} - ${formatCurrency(selectedDSAccount.amountPerDay)}`
-                      : 'Select DS package'}
-                  </span>
-                  <svg
-                    className={`h-4 w-4 shrink-0 text-slate-500 transition-transform ${isPackageDropdownOpen ? 'rotate-180' : ''}`}
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                    aria-hidden="true"
-                  >
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="m19 9-7 7-7-7" />
-                  </svg>
+                  {copiedBankDetail === 'accountNumber' ? 'Copied' : 'Copy'}
                 </button>
-                {isPackageDropdownOpen && (
-                  <div
-                    role="listbox"
-                    aria-labelledby="ds-package-label"
-                    className="absolute left-0 right-0 top-full z-40 mt-2 max-h-64 overflow-y-auto rounded-2xl border border-slate-200 bg-white p-1.5 shadow-xl"
-                  >
-                    {dsAccounts.map((dsAccount) => {
-                      const active = dsAccount._id === selectedDSAccountId;
-
-                      return (
-                        <button
-                          key={dsAccount._id}
-                          type="button"
-                          role="option"
-                          aria-selected={active}
-                          onClick={() => {
-                            setSelectedDSAccountId(dsAccount._id);
-                            setIsPackageDropdownOpen(false);
-                          }}
-                          className={`flex w-full flex-col rounded-xl px-3 py-2.5 text-left text-sm transition ${
-                            active ? 'bg-purple-700 text-white' : 'text-slate-700 hover:bg-slate-50'
-                          }`}
-                        >
-                          <span className="font-black">{dsAccount.DSAccountNumber}</span>
-                          <span className={`mt-0.5 text-xs font-semibold ${active ? 'text-purple-100' : 'text-slate-500'}`}>
-                            {dsAccount.accountType} | {formatCurrency(dsAccount.amountPerDay)} daily
-                          </span>
-                        </button>
-                      );
-                    })}
-                  </div>
-                )}
               </div>
-
-              <div>
-                <label htmlFor="ds-amount" className="mb-1 block text-xs font-bold text-emerald-50 sm:text-sm">
-                  Amount
-                </label>
-                <input
-                  id="ds-amount"
-                  type="number"
-                  min={selectedDSAccount?.amountPerDay || 100}
-                  step={selectedDSAccount?.amountPerDay || 100}
-                  value={amount}
-                  onChange={(event) => setAmount(event.target.value)}
-                  placeholder={String(selectedDSAccount?.amountPerDay || 1000)}
-                  className="w-full min-w-0 rounded-xl border border-slate-300 px-2.5 py-2 text-sm font-bold text-slate-950 placeholder:text-slate-400 focus:border-purple-500 focus:outline-none focus:ring-2 focus:ring-purple-200 sm:rounded-2xl sm:px-3 sm:py-2.5 sm:text-base"
-                  required
-                />
+              <div className="mt-2 space-y-1 rounded-2xl bg-white/15 p-2 text-[11px] font-bold sm:text-xs">
+                <p className="truncate">{sureBankPaymentAccount.bankName}</p>
+                <p className="truncate">{sureBankPaymentAccount.accountName}</p>
+                <p className="text-sm font-black sm:text-base">{sureBankPaymentAccount.accountNumber}</p>
               </div>
-
-              {Number(amount || 0) > 0 && (
-                <div className="rounded-2xl bg-white/95 p-3 text-xs font-bold text-slate-800">
-                  <div className="flex items-center justify-between gap-3">
-                    <span>DS contribution</span>
-                    <span>{formatCurrency(dsPaystackCharge.contributionAmount)}</span>
-                  </div>
-                  <div className="mt-1 flex items-center justify-between gap-3 text-orange-700">
-                    <span>Paystack fee</span>
-                    <span>{formatCurrency(dsPaystackCharge.paystackFee)}</span>
-                  </div>
-                  <div className="mt-2 flex items-center justify-between gap-3 border-t border-slate-200 pt-2 text-sm font-black text-slate-950">
-                    <span>Total to pay</span>
-                    <span>{formatCurrency(dsPaystackCharge.payableAmount)}</span>
-                  </div>
-                  <p className="mt-2 text-[11px] font-semibold text-slate-500">
-                    This fee is charged by Paystack, not SureBank.
-                  </p>
-                </div>
-              )}
-
-              <button
-                type="submit"
-                disabled={fundingLoading}
-                className="flex w-full items-center justify-center rounded-full bg-orange-500 px-4 py-2.5 text-xs font-black text-white transition hover:bg-orange-600 disabled:cursor-not-allowed disabled:bg-orange-300 sm:px-5 sm:py-3 sm:text-sm"
-              >
-                {fundingLoading ? 'Redirecting...' : 'Deposit with Paystack'}
-              </button>
-            </form>
+              <p className="mt-2 text-[10px] font-bold leading-4 text-orange-50 sm:text-xs">
+                Use package number as narration:
+                <span className="ml-1 font-black text-white">
+                  {selectedDSAccount?.DSAccountNumber || 'select package'}
+                </span>
+              </p>
+              <p className="mt-1 text-[10px] font-bold leading-4 text-orange-50 sm:text-xs">
+                Share your payment receipt with us on WhatsApp after transfer.
+              </p>
+            </section>
           </section>
 
           {selectedDSAccount && (
@@ -833,6 +892,41 @@ const MyDS = () => {
 
             {dsTransactionHistoryContent}
           </section>
+          </div>
+        </div>
+      )}
+
+      {showDSDepositModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 p-4">
+          <div className="w-full max-w-md rounded-3xl bg-white p-4 shadow-2xl sm:p-5">
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <p className="text-xs font-black uppercase text-emerald-700">Paystack deposit</p>
+                <h2 className="mt-0.5 text-lg font-black text-slate-950">Deposit to DS Package</h2>
+                <p className="mt-1 text-xs leading-5 text-slate-500">
+                  Select the package and amount you want to fund.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowDSDepositModal(false);
+                  setIsPackageDropdownOpen(false);
+                  setFormError('');
+                }}
+                className="rounded-full bg-slate-100 px-3 py-1.5 text-xs font-bold text-slate-700"
+              >
+                Close
+              </button>
+            </div>
+
+            {(formError || fundingError) && (
+              <div className="mt-3 rounded-2xl border border-red-200 bg-red-50 px-3 py-2 text-xs font-bold text-red-700">
+                {formError || fundingError}
+              </div>
+            )}
+
+            {dsDepositForm}
           </div>
         </div>
       )}
