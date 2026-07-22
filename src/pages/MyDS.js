@@ -13,6 +13,19 @@ import { calculatePaystackPayableForNetAmount } from '../utils/paystackFee';
 const formatCurrency = (amount) => `N${Number(amount || 0).toLocaleString()}`;
 const isDebitLike = (transaction) => ['Debit', 'Charge'].includes(transaction?.direction);
 const clampPercent = (value) => Math.min(100, Math.max(0, Number(value || 0)));
+const getTransactionAccountId = (transaction) => {
+  const accountTypeId = transaction?.accountTypeId;
+  if (!accountTypeId) return '';
+  return String(accountTypeId?._id || accountTypeId);
+};
+
+const filterPackageTransactions = (transactions, dsAccount) => {
+  if (!dsAccount) return transactions || [];
+  return (transactions || []).filter((transaction) => (
+    getTransactionAccountId(transaction) === String(dsAccount._id)
+    || String(transaction.DSAccountNumber || '') === String(dsAccount.DSAccountNumber || '')
+  ));
+};
 const dsPackageOptions = ['Rent', 'School fees', 'Food'];
 const sureBankPaymentAccount = {
   bankName: 'Fidelity Bank',
@@ -68,6 +81,7 @@ const MyDS = () => {
   const [showDSDepositModal, setShowDSDepositModal] = useState(false);
   const [isCreatePackageDropdownOpen, setIsCreatePackageDropdownOpen] = useState(false);
   const [showDSTransactionModal, setShowDSTransactionModal] = useState(false);
+  const [historyDSAccountId, setHistoryDSAccountId] = useState('');
   const [copiedBankDetail, setCopiedBankDetail] = useState('');
   const [showRequestModal, setShowRequestModal] = useState(false);
   const [requestAmount, setRequestAmount] = useState('');
@@ -153,12 +167,18 @@ const MyDS = () => {
     [dsAccounts, selectedDSAccountId]
   );
 
+  const historyDSAccount = useMemo(
+    () => (dsAccounts || []).find((dsAccount) => dsAccount._id === historyDSAccountId) || selectedDSAccount,
+    [dsAccounts, historyDSAccountId, selectedDSAccount]
+  );
+
   const filteredTransactions = useMemo(() => {
-    if (!selectedDSAccount) return dsTransactions || [];
-    return (dsTransactions || []).filter((transaction) => (
-      transaction.accountTypeId === selectedDSAccount._id
-    ));
+    return filterPackageTransactions(dsTransactions, selectedDSAccount);
   }, [dsTransactions, selectedDSAccount]);
+
+  const historyTransactions = useMemo(() => {
+    return filterPackageTransactions(dsTransactions, historyDSAccount);
+  }, [dsTransactions, historyDSAccount]);
 
   const targetDays = 31;
   const daysPaid = Number(selectedDSAccount?.totalCount || 0);
@@ -579,46 +599,48 @@ const MyDS = () => {
     </form>
   );
 
-  const dsTransactionHistoryContent = filteredTransactions.length === 0 ? (
-    <div className="rounded-2xl border border-dashed border-slate-200 px-4 py-8 text-center text-sm text-slate-500">
-      No DS transactions found for this package.
-    </div>
-  ) : (
-    <div className="w-full overflow-x-auto rounded-2xl border border-slate-100">
-      <table className="min-w-[680px] divide-y divide-slate-200 text-xs sm:min-w-[820px] sm:text-sm">
-        <thead>
-          <tr className="bg-slate-50 text-left text-xs font-black uppercase text-slate-500">
-            <th className="px-3 py-3.5">Date</th>
-            <th className="px-3 py-3">DS Account</th>
-            <th className="px-3 py-3">Narration</th>
-            <th className="px-3 py-3">Type</th>
-            <th className="px-3 py-3">Amount</th>
-            <th className="px-3 py-3">Balance</th>
-          </tr>
-        </thead>
-        <tbody className="divide-y divide-slate-100 bg-white">
-          {filteredTransactions.map((transaction) => (
-            <tr key={transaction._id} className="text-slate-700 hover:bg-slate-50">
-              <td className="whitespace-nowrap px-3 py-4 text-xs font-semibold text-slate-500">{transaction.date}</td>
-              <td className="whitespace-nowrap px-3 py-4">
-                <span className="font-bold text-slate-950">{transaction.DSAccountNumber || 'N/A'}</span>
-                <span className="ml-1 text-xs text-slate-400">{transaction.accountType || ''}</span>
-              </td>
-              <td className="min-w-[180px] px-3 py-4 sm:min-w-[240px]">{transaction.narration}</td>
-              <td className="whitespace-nowrap px-3 py-4">
-                <StatusPill transaction={transaction} />
-              </td>
-              <td className={`whitespace-nowrap px-3 py-4 font-bold ${
-                isDebitLike(transaction) ? 'text-red-600' : 'text-green-600'
-              }`}>
-                {isDebitLike(transaction) ? '-' : '+'}{formatCurrency(transaction.amount)}
-              </td>
-              <td className="whitespace-nowrap px-3 py-4 font-semibold">{formatCurrency(transaction.balance)}</td>
+  const renderDSTransactionHistoryContent = (transactions) => (
+    transactions.length === 0 ? (
+      <div className="rounded-2xl border border-dashed border-slate-200 px-4 py-8 text-center text-sm text-slate-500">
+        No DS transactions found for this package.
+      </div>
+    ) : (
+      <div className="w-full overflow-x-auto rounded-2xl border border-slate-100">
+        <table className="min-w-[680px] divide-y divide-slate-200 text-xs sm:min-w-[820px] sm:text-sm">
+          <thead>
+            <tr className="bg-slate-50 text-left text-xs font-black uppercase text-slate-500">
+              <th className="px-3 py-3.5">Date</th>
+              <th className="px-3 py-3">DS Account</th>
+              <th className="px-3 py-3">Narration</th>
+              <th className="px-3 py-3">Type</th>
+              <th className="px-3 py-3">Amount</th>
+              <th className="px-3 py-3">Balance</th>
             </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
+          </thead>
+          <tbody className="divide-y divide-slate-100 bg-white">
+            {transactions.map((transaction) => (
+              <tr key={transaction._id} className="text-slate-700 hover:bg-slate-50">
+                <td className="whitespace-nowrap px-3 py-4 text-xs font-semibold text-slate-500">{transaction.date}</td>
+                <td className="whitespace-nowrap px-3 py-4">
+                  <span className="font-bold text-slate-950">{transaction.DSAccountNumber || 'N/A'}</span>
+                  <span className="ml-1 text-xs text-slate-400">{transaction.accountType || ''}</span>
+                </td>
+                <td className="min-w-[180px] px-3 py-4 sm:min-w-[240px]">{transaction.narration}</td>
+                <td className="whitespace-nowrap px-3 py-4">
+                  <StatusPill transaction={transaction} />
+                </td>
+                <td className={`whitespace-nowrap px-3 py-4 font-bold ${
+                  isDebitLike(transaction) ? 'text-red-600' : 'text-green-600'
+                }`}>
+                  {isDebitLike(transaction) ? '-' : '+'}{formatCurrency(transaction.amount)}
+                </td>
+                <td className="whitespace-nowrap px-3 py-4 font-semibold">{formatCurrency(transaction.balance)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    )
   );
 
   if (!isAuthenticated) {
@@ -686,14 +708,19 @@ const MyDS = () => {
                   ) : null}
                 </div>
                 {latestWithdrawalRequest ? (
-                  <div className="mt-1 flex items-center justify-between gap-2 text-white">
-                    <span className="truncate font-black">{formatCurrency(latestWithdrawalRequest.amount)}</span>
-                    <span className="shrink-0 text-[10px] font-semibold text-purple-100">
-                      {latestWithdrawalRequest.createdAt
-                        ? new Date(latestWithdrawalRequest.createdAt).toLocaleDateString()
-                        : 'N/A'}
-                    </span>
-                  </div>
+                  <>
+                    <div className="mt-1 flex items-center justify-between gap-2 text-white">
+                      <span className="truncate font-black">{formatCurrency(latestWithdrawalRequest.amount)}</span>
+                      <span className="shrink-0 text-[10px] font-semibold text-purple-100">
+                        {latestWithdrawalRequest.createdAt
+                          ? new Date(latestWithdrawalRequest.createdAt).toLocaleDateString()
+                          : 'N/A'}
+                      </span>
+                    </div>
+                    <p className="mt-1.5 rounded-xl bg-white/10 px-2 py-1 text-[10px] font-bold leading-4 text-purple-50 sm:text-xs">
+                      Your request will be processed within 24 hours.
+                    </p>
+                  </>
                 ) : (
                   <p className="mt-1 truncate font-semibold text-purple-100">No request yet</p>
                 )}
@@ -751,10 +778,17 @@ const MyDS = () => {
                 const shouldSpanMobileRow = dsAccounts.length % 2 === 1 && index === dsAccounts.length - 1;
 
                 return (
-                  <button
+                  <div
                     key={dsAccount._id}
-                    type="button"
+                    role="button"
+                    tabIndex={0}
                     onClick={() => setSelectedDSAccountId(dsAccount._id)}
+                    onKeyDown={(event) => {
+                      if (event.key === 'Enter' || event.key === ' ') {
+                        event.preventDefault();
+                        setSelectedDSAccountId(dsAccount._id);
+                      }
+                    }}
                     className={`min-w-0 rounded-2xl border p-3 text-left transition sm:min-w-[220px] sm:max-w-[220px] sm:p-4 ${
                       shouldSpanMobileRow ? 'col-span-2 sm:col-span-1' : ''
                     } ${
@@ -770,42 +804,36 @@ const MyDS = () => {
                     <p className={`mt-2 truncate text-xs font-semibold sm:text-sm ${active ? 'text-purple-100' : 'text-sky-50'}`}>
                       {formatCurrency(dsAccount.amountPerDay)} daily
                     </p>
-                  </button>
+                    <div className="mt-3 rounded-2xl bg-white/15 px-2.5 py-2">
+                      <div className="min-w-0">
+                        <p className={`truncate text-[10px] font-black uppercase ${active ? 'text-purple-100' : 'text-sky-50'}`}>
+                          Balance
+                        </p>
+                        <p className="truncate text-sm font-black text-white sm:text-base">
+                          {formatCurrency(dsAccount.totalContribution)}
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        aria-label={`View transactions for ${dsAccount.DSAccountNumber}`}
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          setHistoryDSAccountId(dsAccount._id);
+                          setShowDSTransactionModal(true);
+                        }}
+                        className="mt-2 inline-flex w-full items-center justify-center gap-1.5 rounded-full bg-white px-3 py-2 text-[11px] font-black uppercase text-slate-950 shadow-sm transition hover:bg-orange-50 hover:text-orange-600 focus:outline-none focus:ring-2 focus:ring-white/70 sm:text-xs"
+                      >
+                        <svg className="h-4 w-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 2m6-2a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+                        </svg>
+                        <span className="truncate">View Transaction</span>
+                      </button>
+                    </div>
+                  </div>
                 );
               })}
             </div>
           </section>
-
-          {selectedDSAccount && (
-            <div className="grid w-full grid-cols-2 gap-2 sm:flex sm:justify-center sm:gap-3">
-              <section className="min-w-0 rounded-2xl border border-purple-700 bg-purple-700 p-3 shadow-sm sm:min-w-[220px] sm:max-w-[220px] sm:p-4">
-                <p className="truncate text-[10px] font-bold uppercase text-purple-100 sm:text-xs">Selected DS balance</p>
-                <div className="mt-1 flex flex-col gap-1">
-                  <p className="truncate text-base font-black text-white sm:text-lg">
-                    {formatCurrency(selectedDSAccount.totalContribution)}
-                  </p>
-                  <p className="truncate text-[10px] font-semibold text-purple-100 sm:text-xs">
-                    {selectedDSAccount.DSAccountNumber} | {selectedDSAccount.accountType}
-                  </p>
-                </div>
-              </section>
-
-              <button
-                type="button"
-                onClick={() => {
-                  dispatch(fetchWalletRequest());
-                  setShowDSTransactionModal(true);
-                }}
-                className="min-w-0 rounded-2xl border border-sky-600 bg-sky-600 p-3 text-left shadow-sm sm:hidden"
-              >
-                <p className="text-[10px] font-bold uppercase text-sky-50">DS Transaction</p>
-                <p className="mt-1 text-base font-black text-white">History</p>
-                <p className="mt-1 text-[10px] font-semibold text-sky-50">
-                  {filteredTransactions.length.toLocaleString()} record{filteredTransactions.length === 1 ? '' : 's'}
-                </p>
-              </button>
-            </div>
-          )}
 
           <div className="grid min-w-0 gap-3 lg:grid-cols-[0.85fr,1.35fr] lg:gap-5">
           <div className="min-w-0 space-y-3 sm:space-y-5">
@@ -890,7 +918,7 @@ const MyDS = () => {
               </button>
             </div>
 
-            {dsTransactionHistoryContent}
+            {renderDSTransactionHistoryContent(filteredTransactions)}
           </section>
           </div>
         </div>
@@ -1053,23 +1081,28 @@ const MyDS = () => {
       )}
 
       {showDSTransactionModal && (
-        <div className="fixed inset-0 z-50 bg-slate-950/60 p-2 sm:hidden">
-          <div className="flex max-h-full min-h-full flex-col overflow-hidden rounded-3xl bg-white shadow-2xl">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 p-2 sm:p-4">
+          <div className="flex max-h-full min-h-full w-full flex-col overflow-hidden rounded-3xl bg-white shadow-2xl sm:min-h-0 sm:max-w-5xl">
             <div className="flex items-start justify-between gap-3 border-b border-slate-100 px-4 py-4">
               <div className="min-w-0">
                 <h2 className="truncate text-base font-black text-slate-950">DS Transaction History</h2>
-                <p className="mt-0.5 text-xs text-slate-500">Swipe the table sideways.</p>
+                <p className="mt-0.5 text-xs text-slate-500">
+                  {historyDSAccount?.DSAccountNumber || selectedDSAccount?.DSAccountNumber || 'Selected package'} | Swipe sideways.
+                </p>
               </div>
               <button
                 type="button"
-                onClick={() => setShowDSTransactionModal(false)}
+                onClick={() => {
+                  setShowDSTransactionModal(false);
+                  setHistoryDSAccountId('');
+                }}
                 className="rounded-full bg-amber-100 px-3 py-1.5 text-xs font-bold text-slate-700"
               >
                 Close
               </button>
             </div>
             <div className="flex-1 overflow-y-auto p-3">
-              {dsTransactionHistoryContent}
+              {renderDSTransactionHistoryContent(historyTransactions)}
             </div>
           </div>
         </div>

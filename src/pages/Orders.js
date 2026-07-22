@@ -614,6 +614,9 @@ const Orders = () => {
   const projectedWalletBalance = replacementWillBePaid
     ? walletAfterOldPaymentReversal - replacementSubtotal
     : walletAfterOldPaymentReversal;
+  const replacementReadyForSummary = Boolean(
+    selectedReplacementProduct && (activeReplacementVariations.length === 0 || replacementVariationId)
+  );
   const filteredReplacementProducts = products.filter((product) => {
     const search = replacementSearch.trim().toLowerCase();
     const isSameProduct = product._id === replaceItem?.productId;
@@ -1644,44 +1647,14 @@ const Orders = () => {
                 )}
               </div>
 
-              <aside className="border-t border-slate-100 bg-slate-50 p-5 lg:border-l lg:border-t-0">
+              <aside className={`${selectedReplacementProduct ? 'block' : 'hidden lg:block'} border-t border-slate-100 bg-slate-50 p-5 lg:border-l lg:border-t-0`}>
                 <h3 className="text-base font-bold text-slate-950">Replacement Summary</h3>
-                <div className="mt-4 rounded-2xl bg-white p-4 text-sm shadow-sm">
-                  <div className="flex justify-between gap-3">
-                    <span className="text-slate-500">Old item</span>
-                    <span className="font-bold text-slate-900">{formatCurrency(replaceItem.subtotal)}</span>
+
+                {!selectedReplacementProduct && (
+                  <div className="mt-4 rounded-2xl border border-dashed border-slate-200 bg-white p-4 text-sm font-semibold text-slate-500">
+                    Select a new product to see the replacement summary.
                   </div>
-                  <div className="mt-3 flex justify-between gap-3">
-                    <span className="text-slate-500">New item</span>
-                    <span className="font-bold text-slate-900">{formatCurrency(replacementSubtotal)}</span>
-                  </div>
-                  {replacePaidAmount > 0 && (
-                    <div className="mt-3 flex justify-between gap-3">
-                      <span className="text-slate-500">Old payment reversed</span>
-                      <span className="font-bold text-emerald-700">{formatCurrency(replacePaidAmount)}</span>
-                    </div>
-                  )}
-                  <div className="mt-3 border-t border-slate-100 pt-3">
-                    <div className="flex justify-between gap-3">
-                      <span className="text-slate-500">New order total</span>
-                      <span className="font-bold text-slate-900">{formatCurrency(replacementOrderTotal)}</span>
-                    </div>
-                    <div className="mt-3 flex justify-between gap-3">
-                      <span className="text-slate-500">New item payment</span>
-                      <span className={`font-bold ${replacementWillBePaid ? 'text-emerald-700' : 'text-slate-700'}`}>
-                        {replacementWillBePaid ? formatCurrency(replacementSubtotal) : 'Waiting for payment'}
-                      </span>
-                    </div>
-                    <div className="mt-3 flex justify-between gap-3">
-                      <span className="text-slate-500">Remaining balance</span>
-                      <span className="font-bold text-amber-700">{formatCurrency(replacementRemainingBalance)}</span>
-                    </div>
-                    <div className="mt-3 flex justify-between gap-3">
-                      <span className="text-slate-500">Wallet after change</span>
-                      <span className="font-bold text-purple-700">{formatCurrency(projectedWalletBalance)}</span>
-                    </div>
-                  </div>
-                </div>
+                )}
 
                 {selectedReplacementProduct && activeReplacementVariations.length > 0 && (
                   <div className="mt-4">
@@ -1713,20 +1686,63 @@ const Orders = () => {
                   </div>
                 )}
 
+                {replacementReadyForSummary && (
+                  <div className="mt-4 rounded-2xl bg-white p-4 text-sm shadow-sm">
+                    <div className="flex justify-between gap-3">
+                      <span className="text-slate-500">Old item</span>
+                      <span className="font-bold text-slate-900">{formatCurrency(replaceItem.subtotal)}</span>
+                    </div>
+                    <div className="mt-3 flex justify-between gap-3">
+                      <span className="text-slate-500">New item</span>
+                      <span className="font-bold text-slate-900">{formatCurrency(replacementSubtotal)}</span>
+                    </div>
+                    {replacePaidAmount > 0 && (
+                      <div className="mt-3 flex justify-between gap-3">
+                        <span className="text-slate-500">Old payment reversed</span>
+                        <span className="font-bold text-emerald-700">{formatCurrency(replacePaidAmount)}</span>
+                      </div>
+                    )}
+                    <div className="mt-3 border-t border-slate-100 pt-3">
+                      <div className="flex justify-between gap-3">
+                        <span className="text-slate-500">New order total</span>
+                        <span className="font-bold text-slate-900">{formatCurrency(replacementOrderTotal)}</span>
+                      </div>
+                      <div className="mt-3 flex justify-between gap-3">
+                        <span className="text-slate-500">New item payment</span>
+                        <span className={`font-bold ${replacementWillBePaid ? 'text-emerald-700' : 'text-slate-700'}`}>
+                          {replacementWillBePaid ? formatCurrency(replacementSubtotal) : 'Waiting for payment'}
+                        </span>
+                      </div>
+                      <div className="mt-3 flex justify-between gap-3">
+                        <span className="text-slate-500">Remaining balance</span>
+                        <span className="font-bold text-amber-700">{formatCurrency(replacementRemainingBalance)}</span>
+                      </div>
+                      <div className="mt-3 flex justify-between gap-3">
+                        <span className="text-slate-500">Wallet after change</span>
+                        <span className="font-bold text-purple-700">{formatCurrency(projectedWalletBalance)}</span>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
                 {replaceError && (
                   <div className="mt-4 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-700">
                     {replaceError}
                   </div>
                 )}
 
-                <button
-                  type="button"
-                  onClick={handleReplaceItem}
-                  disabled={replaceLoading || !replacementProductId}
-                  className="mt-5 w-full rounded-2xl bg-emerald-600 px-4 py-3 text-sm font-bold text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:bg-emerald-300"
-                >
-                  {replaceLoading ? 'Updating...' : 'Update Product'}
-                </button>
+                {replacementReadyForSummary && (
+                  <div className="sticky bottom-0 mt-5 bg-slate-50 pb-1 pt-2">
+                    <button
+                      type="button"
+                      onClick={handleReplaceItem}
+                      disabled={replaceLoading || !replacementProductId}
+                      className="w-full rounded-2xl bg-emerald-600 px-4 py-3 text-sm font-bold text-white shadow-lg shadow-emerald-900/10 hover:bg-emerald-700 disabled:cursor-not-allowed disabled:bg-emerald-300"
+                    >
+                      {replaceLoading ? 'Updating...' : 'Update Product'}
+                    </button>
+                  </div>
+                )}
               </aside>
             </div>
           </div>
