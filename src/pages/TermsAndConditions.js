@@ -34,6 +34,10 @@ const terms = [
     body: 'Products can be returned within 24 hours of delivery only if they are defective or damaged and were delivered by SureBank dispatch. Returns are not honored for pickup orders or when the customer uses their own dispatch. Items must be in their original packaging.'
   },
   {
+    title: 'Withdrawal Requests',
+    body: 'Withdrawal requests from your available balance will be reviewed and processed on or before 24 hours within working days.'
+  },
+  {
     title: 'Customer Responsibility',
     body: 'You are responsible for providing accurate delivery information and ensuring someone is available to receive the delivery at the specified address.'
   },

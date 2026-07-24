@@ -1039,6 +1039,10 @@ const Cart = () => {
                 <h4 className="font-semibold text-gray-900 mb-1">6. Out of Market Products</h4>
                 <p>If a product becomes out of market before it is supplied, delivered, or picked up, you are required to replace it with another available product from SureBank stores. Payment may continue, but the out-of-market product cannot be supplied.</p>
               </div>
+              <div>
+                <h4 className="font-semibold text-gray-900 mb-1">7. Withdrawal Requests</h4>
+                <p>Withdrawal requests from your available balance will be reviewed and processed on or before 24 hours within working days.</p>
+              </div>
             </div>
             <div className="p-4 border-t">
               <button

@@ -63,6 +63,7 @@ const MyDS = () => {
     mainAccount,
     dsAccounts,
     dsTransactions,
+    transactions,
     loading,
     error,
     fundingLoading,
@@ -81,6 +82,7 @@ const MyDS = () => {
   const [showDSDepositModal, setShowDSDepositModal] = useState(false);
   const [isCreatePackageDropdownOpen, setIsCreatePackageDropdownOpen] = useState(false);
   const [showDSTransactionModal, setShowDSTransactionModal] = useState(false);
+  const [showAvailableBalanceTransactionModal, setShowAvailableBalanceTransactionModal] = useState(false);
   const [historyDSAccountId, setHistoryDSAccountId] = useState('');
   const [copiedBankDetail, setCopiedBankDetail] = useState('');
   const [showRequestModal, setShowRequestModal] = useState(false);
@@ -92,6 +94,10 @@ const MyDS = () => {
   const [requestError, setRequestError] = useState('');
   const [withdrawalRequests, setWithdrawalRequests] = useState([]);
   const [requestStatusLoading, setRequestStatusLoading] = useState(false);
+  const [editingDSAccount, setEditingDSAccount] = useState(null);
+  const [editDailyAmount, setEditDailyAmount] = useState('');
+  const [editLoading, setEditLoading] = useState(false);
+  const [editError, setEditError] = useState('');
   const packageDropdownRef = useRef(null);
   const createPackageDropdownRef = useRef(null);
 
@@ -179,6 +185,13 @@ const MyDS = () => {
   const historyTransactions = useMemo(() => {
     return filterPackageTransactions(dsTransactions, historyDSAccount);
   }, [dsTransactions, historyDSAccount]);
+
+  const availableBalanceTransactions = useMemo(() => {
+    if (!mainAccount?._id) return [];
+    return (transactions || []).filter((transaction) => (
+      getTransactionAccountId(transaction) === String(mainAccount._id)
+    ));
+  }, [mainAccount?._id, transactions]);
 
   const targetDays = 31;
   const daysPaid = Number(selectedDSAccount?.totalCount || 0);
@@ -300,6 +313,59 @@ const MyDS = () => {
       setCreateError(error.response?.data?.message || 'Failed to create DS package.');
     } finally {
       setCreateLoading(false);
+    }
+  };
+
+  const openEditDailyAmountModal = (dsAccount) => {
+    setEditingDSAccount(dsAccount);
+    setEditDailyAmount(String(dsAccount?.amountPerDay || ''));
+    setEditError('');
+  };
+
+  const closeEditDailyAmountModal = () => {
+    setEditingDSAccount(null);
+    setEditDailyAmount('');
+    setEditError('');
+  };
+
+  const handleEditDailyAmount = async (event) => {
+    event.preventDefault();
+    setEditError('');
+    setFlashMessage('');
+
+    const amountPerDay = Number(editDailyAmount);
+
+    if (!editingDSAccount?._id) {
+      setEditError('Select a DS package to edit.');
+      return;
+    }
+
+    if (Number(editingDSAccount.totalContribution || 0) > 0) {
+      setEditError('Daily amount can only be edited when the package balance is zero.');
+      return;
+    }
+
+    if (!Number.isFinite(amountPerDay) || amountPerDay <= 0) {
+      setEditError('Enter a valid daily deposit amount.');
+      return;
+    }
+
+    setEditLoading(true);
+
+    try {
+      const response = await axios.put(
+        `${API_URL}/api/ecommerce/auth/wallet/ds-package/${editingDSAccount._id}`,
+        { amountPerDay },
+        { headers: getAuthHeader() }
+      );
+
+      setFlashMessage(response.data?.message || 'Daily amount updated successfully.');
+      closeEditDailyAmountModal();
+      dispatch(fetchWalletRequest());
+    } catch (error) {
+      setEditError(error.response?.data?.message || 'Failed to update daily amount.');
+    } finally {
+      setEditLoading(false);
     }
   };
 
@@ -599,10 +665,17 @@ const MyDS = () => {
     </form>
   );
 
-  const renderDSTransactionHistoryContent = (transactions) => (
-    transactions.length === 0 ? (
+  const renderTransactionHistoryContent = (
+    transactionList,
+    {
+      emptyMessage = 'No transactions found.',
+      accountHeading = 'Account',
+      fallbackAccountNumber = 'N/A',
+    } = {}
+  ) => (
+    transactionList.length === 0 ? (
       <div className="rounded-2xl border border-dashed border-slate-200 px-4 py-8 text-center text-sm text-slate-500">
-        No DS transactions found for this package.
+        {emptyMessage}
       </div>
     ) : (
       <div className="w-full overflow-x-auto rounded-2xl border border-slate-100">
@@ -610,7 +683,7 @@ const MyDS = () => {
           <thead>
             <tr className="bg-slate-50 text-left text-xs font-black uppercase text-slate-500">
               <th className="px-3 py-3.5">Date</th>
-              <th className="px-3 py-3">DS Account</th>
+              <th className="px-3 py-3">{accountHeading}</th>
               <th className="px-3 py-3">Narration</th>
               <th className="px-3 py-3">Type</th>
               <th className="px-3 py-3">Amount</th>
@@ -618,11 +691,13 @@ const MyDS = () => {
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100 bg-white">
-            {transactions.map((transaction) => (
+            {transactionList.map((transaction) => (
               <tr key={transaction._id} className="text-slate-700 hover:bg-slate-50">
                 <td className="whitespace-nowrap px-3 py-4 text-xs font-semibold text-slate-500">{transaction.date}</td>
                 <td className="whitespace-nowrap px-3 py-4">
-                  <span className="font-bold text-slate-950">{transaction.DSAccountNumber || 'N/A'}</span>
+                  <span className="font-bold text-slate-950">
+                    {transaction.DSAccountNumber || transaction.accountNumber || fallbackAccountNumber}
+                  </span>
                   <span className="ml-1 text-xs text-slate-400">{transaction.accountType || ''}</span>
                 </td>
                 <td className="min-w-[180px] px-3 py-4 sm:min-w-[240px]">{transaction.narration}</td>
@@ -662,10 +737,23 @@ const MyDS = () => {
             </div>
             <div className="grid min-w-0 gap-2 sm:min-w-[360px]">
               <div className="grid min-w-0 grid-cols-2 gap-2">
-                <div className="min-w-0 rounded-2xl bg-emerald-600 px-3 py-2 text-xs shadow-sm ring-1 ring-emerald-300/30 sm:px-4 sm:py-3 sm:text-sm">
-                  <p className="truncate text-emerald-50">Available balance</p>
-                  <p className="mt-0.5 truncate font-black text-white">{formatCurrency(freeToWithdrawBalance)}</p>
-                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    dispatch(fetchWalletRequest());
+                    setShowAvailableBalanceTransactionModal(true);
+                  }}
+                  className="min-w-0 rounded-2xl bg-emerald-600 px-3 py-2 text-left text-xs text-white shadow-sm ring-1 ring-emerald-300/30 transition hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-emerald-200 sm:px-4 sm:py-3 sm:text-sm"
+                >
+                  <span className="block truncate font-bold text-emerald-50">Available balance</span>
+                  <span className="mt-0.5 block truncate font-black text-white">{formatCurrency(freeToWithdrawBalance)}</span>
+                  <span className="mt-1.5 inline-flex max-w-full items-center gap-1 rounded-full bg-white/15 px-2 py-1 text-[10px] font-black uppercase text-white sm:text-[11px]">
+                    <svg className="h-3.5 w-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 2m6-2a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+                    </svg>
+                    <span className="truncate">View Transaction</span>
+                  </span>
+                </button>
                 <button
                   type="button"
                   onClick={() => {
@@ -678,13 +766,36 @@ const MyDS = () => {
                   <span className="mt-0.5 block truncate text-white">Make Request</span>
                 </button>
               </div>
-              <div className={`grid min-w-0 gap-2 ${selectedDSAccount ? 'grid-cols-2' : 'grid-cols-1'}`}>
-                {selectedDSAccount && (
-                  <div className="min-w-0 rounded-2xl bg-purple-700 px-3 py-2 text-xs backdrop-blur sm:px-4 sm:py-3 sm:text-sm">
-                    <p className="text-purple-100">Active package</p>
-                    <p className="mt-0.5 truncate font-black text-white">{selectedDSAccount.DSAccountNumber}</p>
+              <div className="grid min-w-0 grid-cols-2 gap-2">
+                <div className="min-w-0 rounded-2xl bg-white/10 px-3 py-2 text-xs ring-1 ring-white/10 sm:px-4 sm:py-3 sm:text-sm">
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="truncate font-bold text-purple-100">Request status</p>
+                    {requestStatusLoading ? (
+                      <span className="h-3 w-3 shrink-0 animate-spin rounded-full border-2 border-white/40 border-t-white" />
+                    ) : latestWithdrawalRequest ? (
+                      <span className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-black ${getRequestStatusClass(latestWithdrawalRequest.status)}`}>
+                        {latestWithdrawalRequest.status || 'Pending'}
+                      </span>
+                    ) : null}
                   </div>
-                )}
+                  {latestWithdrawalRequest ? (
+                    <>
+                      <div className="mt-1 flex items-center justify-between gap-2 text-white">
+                        <span className="truncate font-black">{formatCurrency(latestWithdrawalRequest.amount)}</span>
+                        <span className="shrink-0 text-[10px] font-semibold text-purple-100">
+                          {latestWithdrawalRequest.createdAt
+                            ? new Date(latestWithdrawalRequest.createdAt).toLocaleDateString()
+                            : 'N/A'}
+                        </span>
+                      </div>
+                      <p className="mt-1.5 rounded-xl bg-white/10 px-2 py-1 text-[10px] font-bold leading-4 text-purple-50 sm:text-xs">
+                        Your request will be processed on or before 24 hours within working days.
+                      </p>
+                    </>
+                  ) : (
+                    <p className="mt-1 truncate font-semibold text-purple-100">No request yet</p>
+                  )}
+                </div>
                 <button
                   type="button"
                   onClick={() => {
@@ -695,35 +806,6 @@ const MyDS = () => {
                 >
                   Create New Package
                 </button>
-              </div>
-              <div className="min-w-0 rounded-2xl bg-white/10 px-3 py-2 text-xs ring-1 ring-white/10 sm:px-4 sm:py-3 sm:text-sm">
-                <div className="flex items-center justify-between gap-2">
-                  <p className="truncate font-bold text-purple-100">Request status</p>
-                  {requestStatusLoading ? (
-                    <span className="h-3 w-3 shrink-0 animate-spin rounded-full border-2 border-white/40 border-t-white" />
-                  ) : latestWithdrawalRequest ? (
-                    <span className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-black ${getRequestStatusClass(latestWithdrawalRequest.status)}`}>
-                      {latestWithdrawalRequest.status || 'Pending'}
-                    </span>
-                  ) : null}
-                </div>
-                {latestWithdrawalRequest ? (
-                  <>
-                    <div className="mt-1 flex items-center justify-between gap-2 text-white">
-                      <span className="truncate font-black">{formatCurrency(latestWithdrawalRequest.amount)}</span>
-                      <span className="shrink-0 text-[10px] font-semibold text-purple-100">
-                        {latestWithdrawalRequest.createdAt
-                          ? new Date(latestWithdrawalRequest.createdAt).toLocaleDateString()
-                          : 'N/A'}
-                      </span>
-                    </div>
-                    <p className="mt-1.5 rounded-xl bg-white/10 px-2 py-1 text-[10px] font-bold leading-4 text-purple-50 sm:text-xs">
-                      Your request will be processed within 24 hours.
-                    </p>
-                  </>
-                ) : (
-                  <p className="mt-1 truncate font-semibold text-purple-100">No request yet</p>
-                )}
               </div>
             </div>
           </div>
@@ -776,6 +858,7 @@ const MyDS = () => {
               {dsAccounts.map((dsAccount, index) => {
                 const active = dsAccount._id === selectedDSAccountId;
                 const shouldSpanMobileRow = dsAccounts.length % 2 === 1 && index === dsAccounts.length - 1;
+                const canEditDailyAmount = Number(dsAccount.totalContribution || 0) === 0;
 
                 return (
                   <div
@@ -797,9 +880,26 @@ const MyDS = () => {
                         : 'border-sky-600 bg-sky-600 text-white shadow-sm hover:border-sky-700 hover:bg-sky-700'
                     }`}
                   >
-                    <p className={`truncate text-[11px] font-bold uppercase sm:text-xs ${active ? 'text-purple-100' : 'text-sky-50'}`}>
-                      {dsAccount.accountType}
-                    </p>
+                    <div className="flex items-start justify-between gap-2">
+                      <p className={`min-w-0 truncate text-[11px] font-bold uppercase sm:text-xs ${active ? 'text-purple-100' : 'text-sky-50'}`}>
+                        {dsAccount.accountType}
+                      </p>
+                      {canEditDailyAmount && (
+                        <button
+                          type="button"
+                          aria-label={`Edit daily amount for ${dsAccount.DSAccountNumber}`}
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            openEditDailyAmountModal(dsAccount);
+                          }}
+                          className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-white/20 text-white transition hover:bg-white hover:text-orange-600 focus:outline-none focus:ring-2 focus:ring-white/70"
+                        >
+                          <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Zm0 0L19.5 7.125" />
+                          </svg>
+                        </button>
+                      )}
+                    </div>
                     <p className="mt-1 truncate text-sm font-black text-white sm:text-lg">{dsAccount.DSAccountNumber}</p>
                     <p className={`mt-2 truncate text-xs font-semibold sm:text-sm ${active ? 'text-purple-100' : 'text-sky-50'}`}>
                       {formatCurrency(dsAccount.amountPerDay)} daily
@@ -918,7 +1018,11 @@ const MyDS = () => {
               </button>
             </div>
 
-            {renderDSTransactionHistoryContent(filteredTransactions)}
+            {renderTransactionHistoryContent(filteredTransactions, {
+              emptyMessage: 'No DS transactions found for this package.',
+              accountHeading: 'DS Account',
+              fallbackAccountNumber: selectedDSAccount?.DSAccountNumber || 'N/A',
+            })}
           </section>
           </div>
         </div>
@@ -1080,6 +1184,65 @@ const MyDS = () => {
         </div>
       )}
 
+      {editingDSAccount && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 p-4">
+          <div className="w-full max-w-sm rounded-3xl bg-white p-4 shadow-2xl">
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <p className="text-xs font-black uppercase text-orange-700">Edit Daily Amount</p>
+                <h2 className="mt-0.5 truncate text-lg font-black text-slate-950">
+                  {editingDSAccount.DSAccountNumber}
+                </h2>
+                <p className="mt-1 text-xs leading-5 text-slate-500">
+                  You can edit this only while the package balance is zero.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={closeEditDailyAmountModal}
+                disabled={editLoading}
+                className="rounded-full bg-slate-100 px-3 py-1.5 text-xs font-bold text-slate-700 disabled:cursor-not-allowed"
+              >
+                Close
+              </button>
+            </div>
+
+            {editError && (
+              <div className="mt-3 rounded-2xl border border-red-200 bg-red-50 px-3 py-2 text-xs font-bold text-red-700">
+                {editError}
+              </div>
+            )}
+
+            <form className="mt-4 space-y-3" onSubmit={handleEditDailyAmount}>
+              <div>
+                <label htmlFor="edit-ds-daily-amount" className="mb-1.5 block text-xs font-bold text-slate-700">
+                  Daily deposit amount
+                </label>
+                <input
+                  id="edit-ds-daily-amount"
+                  type="number"
+                  min="1"
+                  step="1"
+                  value={editDailyAmount}
+                  onChange={(event) => setEditDailyAmount(event.target.value)}
+                  placeholder="Enter daily amount"
+                  className="w-full rounded-2xl border border-orange-200 bg-white px-3 py-2.5 text-sm font-bold text-slate-950 outline-none placeholder:text-slate-400 focus:border-orange-500 focus:ring-2 focus:ring-orange-100"
+                  required
+                />
+              </div>
+
+              <button
+                type="submit"
+                disabled={editLoading}
+                className="flex w-full items-center justify-center rounded-full bg-orange-500 px-5 py-3 text-sm font-black text-white transition hover:bg-orange-600 disabled:cursor-not-allowed disabled:bg-orange-300"
+              >
+                {editLoading ? 'Updating...' : 'Update Daily Amount'}
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
+
       {showDSTransactionModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 p-2 sm:p-4">
           <div className="flex max-h-full min-h-full w-full flex-col overflow-hidden rounded-3xl bg-white shadow-2xl sm:min-h-0 sm:max-w-5xl">
@@ -1102,7 +1265,40 @@ const MyDS = () => {
               </button>
             </div>
             <div className="flex-1 overflow-y-auto p-3">
-              {renderDSTransactionHistoryContent(historyTransactions)}
+              {renderTransactionHistoryContent(historyTransactions, {
+                emptyMessage: 'No DS transactions found for this package.',
+                accountHeading: 'DS Account',
+                fallbackAccountNumber: historyDSAccount?.DSAccountNumber || 'N/A',
+              })}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showAvailableBalanceTransactionModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 p-2 sm:p-4">
+          <div className="flex max-h-full min-h-full w-full flex-col overflow-hidden rounded-3xl bg-white shadow-2xl sm:min-h-0 sm:max-w-5xl">
+            <div className="flex items-start justify-between gap-3 border-b border-slate-100 px-4 py-4">
+              <div className="min-w-0">
+                <h2 className="truncate text-base font-black text-slate-950">Available Balance Transaction History</h2>
+                <p className="mt-0.5 text-xs text-slate-500">
+                  {mainAccount?.accountNumber || 'Free to withdraw'} | Swipe sideways.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowAvailableBalanceTransactionModal(false)}
+                className="rounded-full bg-emerald-100 px-3 py-1.5 text-xs font-bold text-slate-700"
+              >
+                Close
+              </button>
+            </div>
+            <div className="flex-1 overflow-y-auto p-3">
+              {renderTransactionHistoryContent(availableBalanceTransactions, {
+                emptyMessage: 'No available balance transactions found.',
+                accountHeading: 'Free To Withdraw',
+                fallbackAccountNumber: mainAccount?.accountNumber || 'N/A',
+              })}
             </div>
           </div>
         </div>

@@ -1433,7 +1433,11 @@ const ProductDetail = () => {
                   <p>You are responsible for providing accurate delivery information and ensuring someone is available to receive the delivery at the specified address.</p>
                 </div>
                 <div>
-                  <h4 className="font-semibold text-gray-900 mb-2">10. Changes to Terms</h4>
+                  <h4 className="font-semibold text-gray-900 mb-2">10. Withdrawal Requests</h4>
+                  <p>Withdrawal requests from your available balance will be reviewed and processed on or before 24 hours within working days.</p>
+                </div>
+                <div>
+                  <h4 className="font-semibold text-gray-900 mb-2">11. Changes to Terms</h4>
                   <p>SureBank reserves the right to modify these terms at any time. Continued use of the service constitutes acceptance of modified terms.</p>
                 </div>
               </div>
