@@ -858,7 +858,6 @@ const MyDS = () => {
               {dsAccounts.map((dsAccount, index) => {
                 const active = dsAccount._id === selectedDSAccountId;
                 const shouldSpanMobileRow = dsAccounts.length % 2 === 1 && index === dsAccounts.length - 1;
-                const canEditDailyAmount = Number(dsAccount.totalContribution || 0) === 0;
 
                 return (
                   <div
@@ -884,21 +883,19 @@ const MyDS = () => {
                       <p className={`min-w-0 truncate text-[11px] font-bold uppercase sm:text-xs ${active ? 'text-purple-100' : 'text-sky-50'}`}>
                         {dsAccount.accountType}
                       </p>
-                      {canEditDailyAmount && (
-                        <button
-                          type="button"
-                          aria-label={`Edit daily amount for ${dsAccount.DSAccountNumber}`}
-                          onClick={(event) => {
-                            event.stopPropagation();
-                            openEditDailyAmountModal(dsAccount);
-                          }}
-                          className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-white/20 text-white transition hover:bg-white hover:text-orange-600 focus:outline-none focus:ring-2 focus:ring-white/70"
-                        >
-                          <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Zm0 0L19.5 7.125" />
-                          </svg>
-                        </button>
-                      )}
+                      <button
+                        type="button"
+                        aria-label={`Edit daily amount for ${dsAccount.DSAccountNumber}`}
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          openEditDailyAmountModal(dsAccount);
+                        }}
+                        className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-white text-orange-600 shadow-sm ring-1 ring-white/60 transition hover:bg-orange-50 focus:outline-none focus:ring-2 focus:ring-white/80"
+                      >
+                        <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Zm0 0L19.5 7.125" />
+                        </svg>
+                      </button>
                     </div>
                     <p className="mt-1 truncate text-sm font-black text-white sm:text-lg">{dsAccount.DSAccountNumber}</p>
                     <p className={`mt-2 truncate text-xs font-semibold sm:text-sm ${active ? 'text-purple-100' : 'text-sky-50'}`}>
