@@ -979,7 +979,7 @@ const Orders = () => {
                 </p>
                 <Link
                   to="/products"
-                  className="mt-3 inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-orange-500 via-pink-500 to-purple-600 px-4 py-3 text-sm font-black lowercase text-white shadow-lg shadow-orange-950/20 ring-1 ring-white/20 transition hover:from-orange-600 hover:via-pink-600 hover:to-purple-700 sm:w-auto sm:rounded-full sm:px-5"
+                  className="mt-3 inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-emerald-600 px-4 py-3 text-sm font-black lowercase text-white shadow-lg shadow-emerald-950/20 ring-1 ring-white/20 transition hover:bg-emerald-700 sm:w-auto sm:rounded-full sm:px-5"
                 >
                   <svg className="h-5 w-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.75 10.5V6a3.75 3.75 0 1 0-7.5 0v4.5m11.356-1.993 1.263 12A1.125 1.125 0 0 1 19.75 21H4.25a1.125 1.125 0 0 1-1.119-1.243l1.263-12A1.125 1.125 0 0 1 5.513 6.75h12.974a1.125 1.125 0 0 1 1.119 1.007Z" />
