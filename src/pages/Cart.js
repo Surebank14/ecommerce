@@ -20,6 +20,8 @@ const formatAddress = ({ streetAddress, town, lga, state }) => (
     .filter(Boolean)
     .join(', ')
 );
+const normalizePhoneNumber = (value = '') => String(value || '').replace(/\D/g, '').slice(0, 11);
+const isValidPhoneNumber = (value = '') => /^\d{11}$/.test(value);
 
 const Cart = () => {
   const dispatch = useDispatch();
@@ -144,6 +146,10 @@ const Cart = () => {
     setAuthValidationError('');
     if (!signupForm.fullName.trim() || !signupForm.phone.trim() || !signupForm.password) {
       setAuthValidationError('Full name, phone number, and password are required');
+      return;
+    }
+    if (!isValidPhoneNumber(signupForm.phone)) {
+      setAuthValidationError('Phone number must be exactly 11 digits');
       return;
     }
     if (signupForm.password.length < 6) {
@@ -1122,9 +1128,12 @@ const Cart = () => {
                         type="tel"
                         placeholder="Phone Number"
                         value={signupForm.phone}
-                        onChange={(e) => setSignupForm({ ...signupForm, phone: e.target.value })}
+                        inputMode="numeric"
+                        maxLength={11}
+                        onChange={(e) => setSignupForm({ ...signupForm, phone: normalizePhoneNumber(e.target.value) })}
                         className="w-full px-4 py-3 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
                       />
+                      <p className="-mt-2 text-xs text-gray-500">Exactly 11 digits</p>
                       <input
                         type="text"
                         placeholder="House number, Street name..."

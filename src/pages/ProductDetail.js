@@ -13,6 +13,9 @@ import { API_URL, getAuthHeader } from '../utils/api';
 import { calculateCustomerSellingPrice, getProductDisplayPrice } from '../utils/pricing';
 import ProductCard from '../components/ProductCard';
 
+const normalizePhoneNumber = (value = '') => String(value || '').replace(/\D/g, '').slice(0, 11);
+const isValidPhoneNumber = (value = '') => /^\d{11}$/.test(value);
+
 const ProductDetail = () => {
   const dispatch = useDispatch();
   const navigate = useNavigate();
@@ -44,6 +47,7 @@ const ProductDetail = () => {
     phone: '',
     password: ''
   });
+  const [authValidationError, setAuthValidationError] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [showNewAddressForm, setShowNewAddressForm] = useState(false);
   const [newAddress, setNewAddress] = useState('');
@@ -166,6 +170,7 @@ const ProductDetail = () => {
   }, [isAuthenticated]);
 
   const handleLogin = () => {
+    setAuthValidationError('');
     if (loginForm.phone && loginForm.password) {
       dispatch(loginRequest({
         phone: loginForm.phone,
@@ -175,6 +180,20 @@ const ProductDetail = () => {
   };
 
   const handleSignup = () => {
+    setAuthValidationError('');
+    if (!signupForm.fullName.trim() || !signupForm.phone.trim() || !signupForm.password) {
+      setAuthValidationError('Full name, phone number, and password are required');
+      return;
+    }
+    if (!isValidPhoneNumber(signupForm.phone)) {
+      setAuthValidationError('Phone number must be exactly 11 digits');
+      return;
+    }
+    if (signupForm.password.length < 6) {
+      setAuthValidationError('Password must be at least 6 characters');
+      return;
+    }
+
     if (signupForm.fullName && signupForm.phone && signupForm.password) {
       const [firstName, ...lastNameParts] = signupForm.fullName.split(' ');
       const lastName = lastNameParts.join(' ') || firstName;
@@ -1544,9 +1563,15 @@ const ProductDetail = () => {
                           type="tel"
                           placeholder="Phone Number"
                           value={signupForm.phone}
-                          onChange={(e) => setSignupForm({ ...signupForm, phone: e.target.value })}
+                          inputMode="numeric"
+                          maxLength={11}
+                          onChange={(e) => {
+                            setAuthValidationError('');
+                            setSignupForm({ ...signupForm, phone: normalizePhoneNumber(e.target.value) });
+                          }}
                           className="w-full px-4 py-3 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
                         />
+                        <p className="-mt-2 text-xs text-gray-500">Exactly 11 digits</p>
                         <select
                           value={signupForm.state}
                           onChange={(e) => setSignupForm({ ...signupForm, state: e.target.value })}
@@ -1665,9 +1690,9 @@ const ProductDetail = () => {
                 </div>
 
                 {/* Error Message */}
-                {authError && (
+                {(authValidationError || authError) && (
                   <div className="mt-3 p-3 bg-red-100 text-red-700 rounded-lg text-sm">
-                    {authError}
+                    {authValidationError || authError}
                   </div>
                 )}
 

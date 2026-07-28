@@ -10,6 +10,8 @@ const formatAddress = ({ streetAddress, town, lga, state }) => (
     .filter(Boolean)
     .join(', ')
 );
+const normalizePhoneNumber = (value = '') => String(value || '').replace(/\D/g, '').slice(0, 11);
+const isValidPhoneNumber = (value = '') => /^\d{11}$/.test(value);
 
 const Register = () => {
   const dispatch = useDispatch();
@@ -51,6 +53,11 @@ const Register = () => {
 
     if (!formData.fullName.trim() || !formData.phone.trim() || !formData.password) {
       setValidationError('Full name, phone number, and password are required');
+      return;
+    }
+
+    if (!isValidPhoneNumber(formData.phone)) {
+      setValidationError('Phone number must be exactly 11 digits');
       return;
     }
 
@@ -114,9 +121,12 @@ const Register = () => {
                   type="tel"
                   placeholder="Phone Number"
                   value={formData.phone}
-                  onChange={(event) => updateField('phone', event.target.value)}
+                  inputMode="numeric"
+                  maxLength={11}
+                  onChange={(event) => updateField('phone', normalizePhoneNumber(event.target.value))}
                   className="w-full rounded-lg border border-gray-200 px-4 py-3 text-sm focus:border-transparent focus:outline-none focus:ring-2 focus:ring-orange-500"
                 />
+                <p className="-mt-2 text-xs text-gray-500">Exactly 11 digits</p>
                 <input
                   type="text"
                   placeholder="House number, Street name..."
