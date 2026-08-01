@@ -7,7 +7,7 @@ export default defineConfig({
     port: 3002,
     proxy: {
       '/api': {
-        target: 'https://surebank-backend.onrender.com',
+        target: 'https://backend-hz3lu.ondigitalocean.app',
         changeOrigin: true,
       },
     },
