@@ -1,5 +1,5 @@
 const LOCAL_API_URL = 'http://localhost:8080';
-const REMOTE_API_URL = 'https://surebank-backend.onrender.com';
+const DIGITALOCEAN_API_URL = 'https://backend-hz3lu.ondigitalocean.app';
 const VERCEL_PROXY_API_URL = '';
 
 const isLocalhostUrl = (value = '') => /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?/i.test(value);
@@ -22,7 +22,7 @@ const getDefaultApiUrl = () => {
     return VERCEL_PROXY_API_URL;
   }
 
-  return REMOTE_API_URL;
+  return DIGITALOCEAN_API_URL;
 };
 
 const getConfiguredApiUrl = () => {
@@ -36,7 +36,7 @@ const getConfiguredApiUrl = () => {
   }
 
   if (!isLocalBrowser() && !isVercelBrowser() && isRelativeUrl(configuredUrl)) {
-    return REMOTE_API_URL;
+    return DIGITALOCEAN_API_URL;
   }
 
   return configuredUrl;
