@@ -50,14 +50,12 @@ const ProductCard = ({ product, compact = false }) => {
           </span>
           <button
             onClick={handleAddToCart}
-            disabled={loading || product.stock === 0}
+            disabled={loading}
             className={`${compact ? 'px-1.5 py-0.5 text-[9px]' : 'px-2 py-0.5 text-[10px]'} rounded font-medium ${
-              product.stock === 0
-                ? 'bg-gray-200 text-gray-500 cursor-not-allowed'
-                : 'bg-orange-500 text-white hover:bg-orange-600'
+              'bg-orange-500 text-white hover:bg-orange-600 disabled:cursor-not-allowed disabled:bg-gray-300 disabled:text-gray-500'
             }`}
           >
-            {product.stock === 0 ? 'Out' : 'Add'}
+            Add
           </button>
         </div>
       </div>
