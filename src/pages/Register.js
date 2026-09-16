@@ -76,6 +76,7 @@ const Register = () => {
       phone: formData.phone,
       address: formatAddress(formData),
       password: formData.password,
+      referralCode: formData.referralCode,
       navigate,
       redirect
     }));
@@ -209,6 +210,15 @@ const Register = () => {
                   </button>
                 </div>
                 <p className="text-xs text-gray-500">At least 6 characters</p>
+                <input
+                  type="tel"
+                  placeholder="Referral code (optional - referrer's phone)"
+                  value={formData.referralCode}
+                  inputMode="numeric"
+                  maxLength={11}
+                  onChange={(event) => updateField('referralCode', normalizePhoneNumber(event.target.value))}
+                  className="w-full rounded-lg border border-gray-200 px-4 py-3 text-sm focus:border-transparent focus:outline-none focus:ring-2 focus:ring-orange-500"
+                />
               </div>
 
               <Link
@@ -217,19 +227,6 @@ const Register = () => {
               >
                 Sign Up later &gt;&gt;&gt;
               </Link>
-
-              <div className="mt-4 rounded-lg bg-gray-50 p-3">
-                <input
-                  type="text"
-                  placeholder="How did you hear about us?"
-                  value={formData.referralCode}
-                  onChange={(event) => updateField('referralCode', event.target.value)}
-                  className="w-full bg-transparent px-3 py-2 text-sm focus:outline-none"
-                />
-                <p className="mt-1 text-xs text-orange-500">
-                  If you input your friend's referral code, we'll send a thank you note to them and also credit you with some money for remembering them when you make your first purchase (T&Cs apply).
-                </p>
-              </div>
 
               {(error || validationError) && (
                 <div className="mt-3 rounded-lg bg-red-100 p-3 text-sm text-red-700">

@@ -24,6 +24,14 @@ const getErrorMessage = (error, fallback) => {
     return message.message || message.name || fallback;
   }
 
+  if (error?.response?.status) {
+    return `${fallback}. Server returned ${error.response.status}.`;
+  }
+
+  if (error?.message) {
+    return `${fallback}: ${error.message}`;
+  }
+
   return fallback;
 };
 

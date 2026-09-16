@@ -1318,14 +1318,16 @@ const Cart = () => {
 
                     <div className="mt-4 bg-gray-50 rounded-lg p-3">
                       <input
-                        type="text"
-                        placeholder="How did you hear about us?"
+                        type="tel"
+                        placeholder="Referral code (optional - referrer's phone)"
                         value={signupForm.referralCode}
-                        onChange={(e) => setSignupForm({ ...signupForm, referralCode: e.target.value })}
+                        inputMode="numeric"
+                        maxLength={11}
+                        onChange={(e) => setSignupForm({ ...signupForm, referralCode: normalizePhoneNumber(e.target.value) })}
                         className="w-full px-3 py-2 bg-transparent text-sm focus:outline-none"
                       />
                       <p className="text-xs text-orange-500 mt-1">
-                        If you input your friend's referral code, we'll send a thank you note to them.
+                        Enter the phone number of the customer who introduced you.
                       </p>
                     </div>
                   </>

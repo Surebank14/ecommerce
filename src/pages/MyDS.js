@@ -63,7 +63,7 @@ const MyDS = () => {
     mainAccount,
     dsAccounts,
     dsTransactions,
-    transactions,
+    mainAccountTransactions,
     loading,
     error,
     fundingLoading,
@@ -188,10 +188,10 @@ const MyDS = () => {
 
   const availableBalanceTransactions = useMemo(() => {
     if (!mainAccount?._id) return [];
-    return (transactions || []).filter((transaction) => (
+    return (mainAccountTransactions || []).filter((transaction) => (
       getTransactionAccountId(transaction) === String(mainAccount._id)
     ));
-  }, [mainAccount?._id, transactions]);
+  }, [mainAccount?._id, mainAccountTransactions]);
 
   const targetDays = 31;
   const daysPaid = Number(selectedDSAccount?.totalCount || 0);

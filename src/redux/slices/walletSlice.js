@@ -4,6 +4,7 @@ const initialState = {
   customer: null,
   account: null,
   mainAccount: null,
+  mainAccountTransactions: [],
   dsAccounts: [],
   dsTransactions: [],
   transactions: [],
@@ -31,6 +32,7 @@ const walletSlice = createSlice({
       state.customer = action.payload.customer;
       state.account = action.payload.account;
       state.mainAccount = action.payload.mainAccount || null;
+      state.mainAccountTransactions = action.payload.mainAccountTransactions || [];
       state.dsAccounts = action.payload.dsAccounts || [];
       state.dsTransactions = action.payload.dsTransactions || [];
       state.transactions = action.payload.transactions || [];
@@ -64,6 +66,7 @@ const walletSlice = createSlice({
       state.fundingVerified = true;
       state.account = action.payload.account;
       state.mainAccount = action.payload.mainAccount || state.mainAccount || null;
+      state.mainAccountTransactions = action.payload.mainAccountTransactions || state.mainAccountTransactions || [];
       state.dsAccounts = action.payload.dsAccounts || state.dsAccounts || [];
       state.dsTransactions = action.payload.dsTransactions || state.dsTransactions || [];
       state.transactions = action.payload.transactions || [];
