@@ -106,6 +106,7 @@ const Account = () => {
         ...(currentSummary || {}),
         referralIncentiveBalance: response.data.referralIncentiveBalance,
         referralIncentiveTotalEarned: response.data.referralIncentiveTotalEarned,
+        referralIncentiveTransferredAt: response.data.referralIncentiveTransferredAt,
       }));
       setReferralTransferMessage(
         `Transferred ₦${Number(response.data.transferredAmount || amount).toLocaleString()} to your wallet`
@@ -230,8 +231,10 @@ const Account = () => {
 
   const fullName = [customer?.firstName, customer?.lastName].filter(Boolean).join(' ') || 'Customer';
   const loginBonusBalance = Number(referralSummary?.loginBonusBalance || 0);
+  const referralIncentiveBalance = Number(referralSummary?.referralIncentiveBalance || 0);
   const transactionBonusBalance = Number(referralSummary?.transactionBonusBalance || 0);
   const loginBonusTransferred = Boolean(referralSummary?.loginBonusTransferredAt) && loginBonusBalance <= 0;
+  const referralIncentiveTransferred = Boolean(referralSummary?.referralIncentiveTransferredAt) && referralIncentiveBalance <= 0;
   const formatDisplayDate = (dateValue) => dateValue
     ? new Date(dateValue).toLocaleDateString('en-NG', {
       year: 'numeric',
@@ -297,7 +300,7 @@ const Account = () => {
         </section>
 
         <section className="rounded-2xl border border-emerald-100 bg-gradient-to-br from-emerald-50 via-white to-orange-50 p-5 shadow-sm">
-          <h2 className="text-lg font-semibold text-gray-900">Referral Incentive</h2>
+          <h2 className="text-lg font-semibold text-gray-900">Referral Incentives</h2>
           <p className="mt-1 text-sm text-gray-600">Your referral code is your phone number.</p>
           <div className="mt-5 grid gap-3 sm:grid-cols-2">
             <div className="rounded-xl bg-white/80 p-4">
@@ -333,19 +336,37 @@ const Account = () => {
               <span className="text-gray-600">People referred directly</span>
               <span className="font-bold text-gray-900">{Number(referralSummary?.referralCount || 0).toLocaleString()}</span>
             </div>
+            <div className="mt-2 flex items-center justify-between gap-3">
+              <span className="text-gray-600">Referral incentive</span>
+              <span className="shrink-0 font-bold text-emerald-700">₦{Number(referralSummary?.sbReferralIncentiveTotalEarned || 0).toLocaleString()}</span>
+            </div>
+            <div className="mt-2 flex items-center justify-between gap-3">
+              <span className="text-gray-600">Product referral incentive</span>
+              <span className="shrink-0 font-bold text-gray-900">₦{Number(referralSummary?.productReferralIncentiveTotalEarned || 0).toLocaleString()}</span>
+            </div>
             <div className="mt-2 flex items-center justify-between">
               <span className="text-gray-600">Total earned</span>
               <span className="font-bold text-gray-900">₦{Number(referralSummary?.referralIncentiveTotalEarned || 0).toLocaleString()}</span>
             </div>
           </div>
-          <button
-            type="button"
-            onClick={handleTransferReferralToWallet}
-            disabled={referralTransferLoading || Number(referralSummary?.referralIncentiveBalance || 0) <= 0}
-            className="mt-4 w-full rounded-lg bg-emerald-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:bg-emerald-300"
-          >
-            {referralTransferLoading ? 'Transferring...' : 'Transfer to Wallet'}
-          </button>
+          {referralIncentiveTransferred ? (
+            <div className="mt-4 overflow-hidden rounded-xl border border-emerald-200 bg-gradient-to-r from-emerald-500 via-lime-500 to-orange-400 p-[1px] shadow-sm">
+              <div className="rounded-xl bg-white/95 px-4 py-3">
+                <p className="text-sm font-bold leading-6 text-slate-900">
+                  Referral incentive of ₦{Number(referralSummary?.referralIncentiveTotalEarned || 0).toLocaleString()} has been transferred to order wallet on {formatDisplayDate(referralSummary.referralIncentiveTransferredAt)}.
+                </p>
+              </div>
+            </div>
+          ) : (
+            <button
+              type="button"
+              onClick={handleTransferReferralToWallet}
+              disabled={referralTransferLoading || referralIncentiveBalance <= 0}
+              className="mt-4 w-full rounded-lg bg-emerald-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:bg-emerald-300"
+            >
+              {referralTransferLoading ? 'Transferring...' : 'Transfer to Wallet'}
+            </button>
+          )}
           {referralTransferMessage && <p className="mt-2 text-xs font-medium text-emerald-700">{referralTransferMessage}</p>}
           {referralTransferError && <p className="mt-2 text-xs font-medium text-red-600">{referralTransferError}</p>}
 
@@ -361,12 +382,8 @@ const Account = () => {
             <>
               <div className="mt-5 rounded-xl bg-white/80 p-4 text-sm">
                 <div className="flex items-center justify-between gap-3">
-                  <span className="font-semibold text-gray-700">Login Bonus Balance</span>
+                  <span className="font-semibold text-gray-700">Login Bonus</span>
                   <span className="font-black text-emerald-700">₦{loginBonusBalance.toLocaleString()}</span>
-                </div>
-                <div className="mt-2 flex items-center justify-between gap-3">
-                  <span className="text-gray-600">Total login bonus earned</span>
-                  <span className="font-bold text-gray-900">₦{Number(referralSummary?.loginBonusTotalEarned || 0).toLocaleString()}</span>
                 </div>
                 {referralSummary?.loginBonusCreditedAt && (
                   <div className="mt-2 flex items-center justify-between gap-3">
@@ -390,12 +407,8 @@ const Account = () => {
 
           <div className="mt-5 rounded-xl bg-white/80 p-4 text-sm">
             <div className="flex items-center justify-between gap-3">
-              <span className="font-semibold text-gray-700">Transaction Bonus Balance</span>
+              <span className="font-semibold text-gray-700">Transaction Bonus</span>
               <span className="font-black text-orange-600">₦{transactionBonusBalance.toLocaleString()}</span>
-            </div>
-            <div className="mt-2 flex items-center justify-between gap-3">
-              <span className="text-gray-600">Total transaction bonus earned</span>
-              <span className="font-bold text-gray-900">₦{Number(referralSummary?.transactionBonusTotalEarned || 0).toLocaleString()}</span>
             </div>
             {referralSummary?.transactionBonusLastCreditedAt && (
               <div className="mt-2 flex items-center justify-between gap-3">
