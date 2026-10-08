@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
+import { SUPPORT_PHONE_DISPLAY } from '../utils/supportContact';
 
 const quickLinks = [
   { to: '/', label: 'Home' },
@@ -123,7 +124,7 @@ const Footer = () => {
               <h4 className="text-sm font-semibold">Contact</h4>
               <ul className="mt-2 space-y-1 text-xs text-slate-300 sm:text-sm">
                 <li>Email: support@surebank.com</li>
-                <li>Phone: +234 703 917 3626</li>
+                <li>Phone: {SUPPORT_PHONE_DISPLAY}</li>
               </ul>
             </div>
           </div>

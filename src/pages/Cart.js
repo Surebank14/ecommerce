@@ -13,6 +13,7 @@ import { fetchWalletRequest } from '../redux/slices/walletSlice';
 import { getStates, getLGAs, getTowns } from '../data/nigerianLocations';
 import { PRODUCT_FALLBACK_IMAGE, resolveImageUrl } from '../utils/image';
 import { API_URL, getAuthHeader } from '../utils/api';
+import { SUPPORT_PHONE_LOCAL } from '../utils/supportContact';
 
 const formatAddress = ({ streetAddress, town, lga, state }) => (
   [streetAddress, town, lga, state]
@@ -177,10 +178,10 @@ const Cart = () => {
 
   // SureBank pickup locations
   const pickupLocations = [
-    { id: 1, name: 'SureBank Headquarters', address: '82 Ijesha Road, Surulere, Lagos, Nigeria', phone: '+2347074542997', area: 'Ijesha Surulere Lagos' },
-    { id: 2, name: 'SureBank Ikeja Branch', address: '15 Allen Avenue, Ikeja, Lagos, Nigeria', phone: '+2348012345678', area: 'Allen Ikeja Lagos' },
-    { id: 3, name: 'SureBank Victoria Island', address: '25 Adeola Odeku Street, Victoria Island, Lagos', phone: '+2348023456789', area: 'VI Lagos' },
-    { id: 4, name: 'SureBank Lekki Branch', address: '10 Admiralty Way, Lekki Phase 1, Lagos', phone: '+2348034567890', area: 'Lekki Lagos' }
+    { id: 1, name: 'SureBank Headquarters', address: '82 Ijesha Road, Surulere, Lagos, Nigeria', phone: SUPPORT_PHONE_LOCAL, area: 'Ijesha Surulere Lagos' },
+    { id: 2, name: 'SureBank Ikeja Branch', address: '15 Allen Avenue, Ikeja, Lagos, Nigeria', phone: SUPPORT_PHONE_LOCAL, area: 'Allen Ikeja Lagos' },
+    { id: 3, name: 'SureBank Victoria Island', address: '25 Adeola Odeku Street, Victoria Island, Lagos', phone: SUPPORT_PHONE_LOCAL, area: 'VI Lagos' },
+    { id: 4, name: 'SureBank Lekki Branch', address: '10 Admiralty Way, Lekki Phase 1, Lagos', phone: SUPPORT_PHONE_LOCAL, area: 'Lekki Lagos' }
   ];
 
   const handleQuantityChange = (productId, quantity, variationId = '') => {

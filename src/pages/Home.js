@@ -51,6 +51,49 @@ const isValidHeroImage = (imagePath = '') => {
   return /^https?:\/\//i.test(value) || value.startsWith('/');
 };
 
+const getProductCategoryKey = (product = {}) => {
+  const category = product.categoryId;
+  if (category && typeof category === 'object') return category._id || category.id || category.name || 'uncategorized';
+  return category || 'uncategorized';
+};
+
+const getProductCategoryLabel = (product = {}, categories = []) => {
+  const category = product.categoryId;
+  if (category && typeof category === 'object') return category.name || 'Product';
+  return categories.find((item) => item._id === category)?.name || 'Product';
+};
+
+const shuffleItems = (items = []) => (
+  [...items].sort(() => Math.random() - 0.5)
+);
+
+const getMixedCategoryProducts = (sourceProducts = [], maxSlides = 6) => {
+  const groupedProducts = sourceProducts.reduce((groups, product) => {
+    const categoryKey = getProductCategoryKey(product);
+    if (!groups.has(categoryKey)) groups.set(categoryKey, []);
+    groups.get(categoryKey).push(product);
+    return groups;
+  }, new Map());
+
+  const categoryGroups = Array.from(groupedProducts.entries())
+    .map(([categoryKey, categoryProducts]) => ({
+      categoryKey,
+      products: shuffleItems(categoryProducts),
+    }))
+    .sort(() => Math.random() - 0.5);
+
+  const selectedProducts = [];
+  while (selectedProducts.length < maxSlides && categoryGroups.some((group) => group.products.length > 0)) {
+    categoryGroups.forEach((group) => {
+      if (selectedProducts.length < maxSlides && group.products.length > 0) {
+        selectedProducts.push(group.products.shift());
+      }
+    });
+  }
+
+  return selectedProducts;
+};
+
 const Home = () => {
   const dispatch = useDispatch();
   const { featuredProducts, products, productsPagination, categories, productsLoading, productsAppending, productsLoaded } = useSelector((state) => state.products);
@@ -67,7 +110,7 @@ const Home = () => {
   const desktopCategoryMenuRef = useRef(null);
   const loadMoreRef = useRef(null);
   const productHeroSlides = useMemo(() => (
-    (featuredProducts || [])
+    getMixedCategoryProducts(featuredProducts || [], 6)
       .map((product) => {
         const image = (product.images || []).find(isValidHeroImage);
         if (!image) return null;
@@ -77,14 +120,13 @@ const Home = () => {
           image: resolveImageUrl(image, { width: 900, height: 700, crop: 'limit' }),
           title: product.name || 'Featured Product',
           subtitle: `From ₦${getProductDisplayPrice(product).toLocaleString()}`,
-          category: 'Featured Product',
+          category: getProductCategoryLabel(product, categories),
           link: `/product/${product._id}`,
           isProduct: true,
         };
       })
       .filter(Boolean)
-      .slice(0, 6)
-  ), [featuredProducts]);
+  ), [featuredProducts, categories]);
   const activeHeroSlides = productHeroSlides.length > 0 ? productHeroSlides : fallbackHeroSlides;
 
   const nextSlide = useCallback(() => {
@@ -248,7 +290,7 @@ const Home = () => {
   );
 
   useEffect(() => {
-    dispatch(fetchFeaturedProductsRequest({ limit: 20 }));
+    dispatch(fetchFeaturedProductsRequest({ limit: 60 }));
     dispatch(fetchCategoriesRequest());
   }, [dispatch]);
 

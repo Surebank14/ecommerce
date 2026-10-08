@@ -1,9 +1,9 @@
 import React from 'react';
+import { SUPPORT_WHATSAPP_NUMBER } from '../utils/supportContact';
 
 const WhatsAppSupport = () => {
-  const phoneNumber = '2347039173626';
   const message = encodeURIComponent('Hello, I need support with EasyToBuy.');
-  const whatsappUrl = `https://wa.me/${phoneNumber}?text=${message}`;
+  const whatsappUrl = `https://wa.me/${SUPPORT_WHATSAPP_NUMBER}?text=${message}`;
 
   return (
     <a
