@@ -46,6 +46,20 @@ const authSlice = createSlice({
       state.loading = false;
       state.error = action.payload;
     },
+    passwordUpdateRequired: (state) => {
+      state.loading = false;
+      state.error = null;
+      state.customer = null;
+      state.token = null;
+      state.accountNumber = null;
+      state.SBAccountNumber = null;
+      state.isAuthenticated = false;
+      state.requiresPasswordUpdate = true;
+      localStorage.removeItem('customerToken');
+      localStorage.removeItem('customerData');
+      localStorage.removeItem('customerAccountNumber');
+      localStorage.removeItem('customerSBAccountNumber');
+    },
     registerRequest: (state) => {
       state.loading = true;
       state.error = null;
@@ -106,6 +120,7 @@ export const {
   loginRequest,
   loginSuccess,
   loginFailure,
+  passwordUpdateRequired,
   registerRequest,
   registerSuccess,
   registerFailure,

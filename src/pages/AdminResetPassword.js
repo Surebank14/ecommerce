@@ -1,9 +1,12 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { useDispatch } from 'react-redux';
 import axios from 'axios';
+import { passwordUpdateRequired } from '../redux/slices/authSlice';
 import { API_URL } from '../utils/api';
 
 const AdminResetPassword = () => {
+  const dispatch = useDispatch();
   const navigate = useNavigate();
   const location = useLocation();
   const [formData, setFormData] = useState({
@@ -15,6 +18,10 @@ const AdminResetPassword = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+
+  useEffect(() => {
+    dispatch(passwordUpdateRequired());
+  }, [dispatch]);
 
   const handleSubmit = async (event) => {
     event.preventDefault();

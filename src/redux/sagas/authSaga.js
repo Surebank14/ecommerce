@@ -4,6 +4,7 @@ import {
   loginRequest,
   loginSuccess,
   loginFailure,
+  passwordUpdateRequired,
   registerRequest,
   registerSuccess,
   registerFailure,
@@ -24,6 +25,7 @@ function* loginSaga(action) {
       localStorage.removeItem('customerData');
       localStorage.removeItem('customerAccountNumber');
       localStorage.removeItem('customerSBAccountNumber');
+      yield put(passwordUpdateRequired());
       if (navigate) {
         navigate('/admin-reset-password', {
           state: { phone, forced: true },
